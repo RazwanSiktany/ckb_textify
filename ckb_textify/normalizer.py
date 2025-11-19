@@ -2,7 +2,6 @@
 import re
 import unicodedata
 
-# ... (CHAR_MAP, PUNCTUATION_MAP, HEH, etc. remain the same) ...
 CHAR_MAP = {
     'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ي': 'ی', 'ى': 'ی',
     'ك': 'ک', 'ة': 'ه',
@@ -39,11 +38,15 @@ def normalize_digits(text: str) -> str:
 
     text = text.translate(translation_table)
 
-    # --- *** NEW: Fix Arabic Decimal Separator *** ---
-    # Convert "٢٫٥" (after digit transliteration) to "2.5"
+    # --- *** NEW FIX: Remove Arabic Thousands Separator (٬) *** ---
+    # This turns "79٬264" into "79264"
+    text = text.replace("٬", "")
+
+    # --- Fix Arabic Decimal Separator ---
+    # Convert "2٫5" to "2.5"
     text = text.replace("٫", ".")
 
-    # Smart Number Formatting (European/US detection) from previous step
+    # Smart Number Formatting (European/US detection)
     def _clean_number(match):
         num_str = match.group(0)
         if '.' in num_str and ',' in num_str:
