@@ -1,3 +1,4 @@
 streamlit
-ckb-textify
 eng-to-ipa
+anyascii
+.
