@@ -1,3 +1,7 @@
+[![PyPI version](https://badge.fury.io/py/ckb-textify.svg)](https://badge.fury.io/py/ckb-textify)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://static.pepy.tech/badge/ckb-textify)](https://pepy.tech/project/ckb-textify)
+
 # ckb-textify
 
 **ckb-textify** is a comprehensive, industrial-strength Text
