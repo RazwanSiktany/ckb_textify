@@ -3,11 +3,12 @@ import re
 
 # --- 1. Symbol Mappings ---
 SYMBOLS_MAP = {
-    "&": " و ",  # Ampersand -> and
-    "_": " ",  # Underscore -> space
-    "~": " نزیکەی ",  # Tilde -> approximately
-    "=": " یەکسانە بە ",  # Equals
-    "≈": " نزیکەی ",  # <-- ADDED (Approx)
+    "&": " و ",
+    "_": " ",
+    "~": " نزیکەی ",
+    "=": " یەکسانە بە ",
+    "≈": " نزیکەی ",
+    "^": " توان ",  # <-- ADDED
 }
 
 # Regex for '@' (at sign)
@@ -22,9 +23,6 @@ ELLIPSIS_RE = re.compile(r"\.{2,}")
 
 
 def normalize_common_symbols(text: str) -> str:
-    """
-    Expands common symbols like @, #, &, =, ≈.
-    """
     # Simple Replacements
     for symbol, expansion in SYMBOLS_MAP.items():
         text = text.replace(symbol, expansion)
@@ -34,7 +32,7 @@ def normalize_common_symbols(text: str) -> str:
 
     # # (Hashtag/Number)
     text = NUMBER_SIGN_RE.sub(r" ژمارە \1", text)
-    text = HASHTAG_RE.sub(r" هاشتاگ \1", text)
+    text = HASHTAG_RE.sub(r" ھاشتاگ \1", text)
 
     # ... (Ellipsis)
     text = ELLIPSIS_RE.sub(" . ", text)

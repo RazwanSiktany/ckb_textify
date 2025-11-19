@@ -19,6 +19,12 @@ def number_to_kurdish_text(n: int) -> str:
     if n == 0:
         return kurdish_units[0]
 
+    # Handle Negative Numbers
+    is_negative = False
+    if n < 0:
+        is_negative = True
+        n = abs(n)
+
     def three_digits_to_text(num):
         parts = []
         hundreds = num // 100
@@ -46,16 +52,13 @@ def number_to_kurdish_text(n: int) -> str:
     parts = []
     scale_index = 0
 
-    if n < 0:
-        parts.append("سالب")
-        n = abs(n)
-
     while n > 0:
         chunk = n % 1000
         if chunk:
             chunk_text = three_digits_to_text(chunk)
             scale = kurdish_scales[scale_index]
 
+            # Special rule: don't use یەک for 100 or 1000
             if chunk == 1 and scale in ["", "ھەزار"]:
                 parts.insert(0, scale or kurdish_units[1])
             else:
@@ -63,4 +66,10 @@ def number_to_kurdish_text(n: int) -> str:
         n //= 1000
         scale_index += 1
 
-    return " و ".join(parts)
+    result_text = " و ".join(parts)
+
+    # Prepend "سالب" if it was negative
+    if is_negative:
+        return f"سالب {result_text}"
+
+    return result_text

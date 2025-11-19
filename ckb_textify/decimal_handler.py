@@ -10,10 +10,11 @@ def decimal_to_kurdish_text(number: float) -> str:
     if number - integer_part == 0.5:
         return f"{number_to_kurdish_text(integer_part)} و نیو"
 
-    decimal_str = str(number).split(".")[1]
+    # --- FIX: Force non-scientific notation ---
+    # Format to 15 decimal places to capture small numbers like 0.00005
+    # Then strip trailing zeros
+    decimal_str = f"{number:.15f}".split(".")[1].rstrip('0')
 
-    # Remove trailing zeros
-    decimal_str = decimal_str.rstrip('0')
     if decimal_str == '':
         return number_to_kurdish_text(integer_part)
 

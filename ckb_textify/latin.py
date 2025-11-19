@@ -2,14 +2,13 @@
 import re
 from .english_ipa import ipa_transliterate
 
-# --- 1. Multi-Character Mappings ---
+# --- Mappings (Same as before) ---
 MULTI_CHAR_MAP = {
     "tion": "شن", "ght": "ت", "ph": "ف", "sh": "ش", "ch": "چ",
     "kh": "خ", "gh": "غ", "th": "س", "zh": "ژ", "oo": "وو",
     "ee": "ی", "qu": "کو", "ck": "ک",
 }
 
-# --- 2. Single Character Mappings (Phonetic) ---
 SINGLE_CHAR_MAP = {
     "a": "ا", "b": "ب", "c": "ک", "d": "د", "e": "ێ", "f": "ف",
     "g": "گ", "h": "ه", "i": "ی", "j": "ج", "k": "ک", "l": "ل",
@@ -18,7 +17,6 @@ SINGLE_CHAR_MAP = {
     "y": "ی", "z": "ز",
 }
 
-# --- 3. Letter Names (For Acronyms like GPT) ---
 LETTER_NAMES = {
     "a": "ئەی", "b": "بی", "c": "سی", "d": "دی", "e": "ئی", "f": "ئێف",
     "g": "جی", "h": "ئێچ", "i": "ئای", "j": "جەی", "k": "کەی", "l": "ئێڵ",
@@ -27,34 +25,31 @@ LETTER_NAMES = {
     "y": "وای", "z": "زێت",
 }
 
-# *** UPDATED REGEX ***
-# Removed \b to match "GPT" inside "ChatGPT" or "چاتGPT"
+# Regex to split mixed case words (e.g. ChatGPT -> Chat, GPT)
+# Matches: Sequence of Uppercase letters OR Sequence of Title/Lower letters
+SPLIT_MIXED_RE = re.compile(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+')
+
+# Regex to find Latin words
 LATIN_WORD_RE = re.compile(r"[a-zA-Z]+")
 
 
 def _fallback_transliterate(word: str) -> str:
     word = word.lower()
     result = ""
-
-    # Initial Vowel Rule
-    if word and word[0] in "aeiou":
-        result += "ئ"
+    if word and word[0] in "aeiou": result += "ئ"
 
     i = 0
     n = len(word)
     while i < n:
-        if i + 4 <= n and word[i:i + 4] in MULTI_CHAR_MAP:
-            result += MULTI_CHAR_MAP[word[i:i + 4]]
-            i += 4
-            continue
-        if i + 3 <= n and word[i:i + 3] in MULTI_CHAR_MAP:
-            result += MULTI_CHAR_MAP[word[i:i + 3]]
-            i += 3
-            continue
-        if i + 2 <= n and word[i:i + 2] in MULTI_CHAR_MAP:
-            result += MULTI_CHAR_MAP[word[i:i + 2]]
-            i += 2
-            continue
+        found = False
+        for length in [4, 3, 2]:
+            if i + length <= n and word[i:i + length] in MULTI_CHAR_MAP:
+                result += MULTI_CHAR_MAP[word[i:i + length]]
+                i += length
+                found = True
+                break
+        if found: continue
+
         char = word[i]
         if char in SINGLE_CHAR_MAP:
             result += SINGLE_CHAR_MAP[char]
@@ -64,16 +59,13 @@ def _fallback_transliterate(word: str) -> str:
     return result
 
 
-def _process_latin_word(match) -> str:
-    word = match.group(0)
+def _process_single_chunk(chunk: str) -> str:
+    """Process a single clean chunk (e.g. 'Chat' or 'GPT')"""
 
-    # --- *** NEW: Handle Acronyms (All Uppercase) *** ---
-    # If "GPT", "USA", "KRG" -> Spell it out
-    # Exception: 'I' and 'A' are single letters but often words,
-    # but spelling them out (Ai, Ey) is usually safe/correct for TTS.
-    if word.isupper():
+    # Acronyms (GPT, USA)
+    if chunk.isupper() and len(chunk) > 1:
         spelled_out = []
-        for char in word:
+        for char in chunk:
             char_lower = char.lower()
             if char_lower in LETTER_NAMES:
                 spelled_out.append(LETTER_NAMES[char_lower])
@@ -81,20 +73,25 @@ def _process_latin_word(match) -> str:
                 spelled_out.append(char)
         return " ".join(spelled_out)
 
-    # --- Standard Phonetic Transliteration ---
+    # Standard Phonetic
+    ipa_result = ipa_transliterate(chunk)
+    if ipa_result: return ipa_result
+    return _fallback_transliterate(chunk)
 
-    # 1. Try Accurate IPA Transliteration
-    ipa_result = ipa_transliterate(word)
-    if ipa_result:
-        return ipa_result
 
-    # 2. Fallback to Rules
-    return _fallback_transliterate(word)
+def _process_latin_word(match) -> str:
+    full_word = match.group(0)
+
+    # Split "ChatGPT" -> ["Chat", "GPT"]
+    # Split "iPhone"  -> ["i", "Phone"]
+    parts = SPLIT_MIXED_RE.findall(full_word)
+
+    # If regex failed to split anything useful, use whole word
+    if not parts: parts = [full_word]
+
+    processed_parts = [_process_single_chunk(p) for p in parts]
+    return " ".join(processed_parts)
 
 
 def normalize_latin(text: str) -> str:
-    """
-    Finds English words/acronyms and converts them to Sorani.
-    Handles attached words (e.g. چاتGPT).
-    """
     return LATIN_WORD_RE.sub(_process_latin_word, text)
