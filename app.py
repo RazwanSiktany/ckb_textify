@@ -71,4 +71,4 @@ if st.button("Normalize (چاکسازی)"):
 
 # Footer
 st.markdown("---")
-st.caption("Powered by [ckb-textify](https://github.com/RazwanSiktany/ckb-textify)")
+st.caption("Powered by [ckb-textify](https://github.com/RazwanSiktany/ckb_textify)")
