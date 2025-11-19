@@ -9,12 +9,14 @@ st.set_page_config(
 )
 
 # Custom CSS for Right-to-Left (RTL) support
+# This targets ALL text areas (Input and Output)
 st.markdown("""
     <style>
     .stTextArea textarea {
         direction: rtl;
         text-align: right;
         font-family: 'Tahoma', 'Calibri', sans-serif;
+        font-size: 18px;
     }
     .stMarkdown {
         text-align: right;
@@ -51,8 +53,17 @@ if st.button("Normalize (چاکسازی)"):
     if text_input:
         try:
             normalized_text = convert_all(text_input, config=user_config)
-            st.success("✅ Result:")
-            st.code(normalized_text, language=None) # Display as copyable code block
+            st.success("✅ Result (ئەنجام):")
+
+            # --- UPDATED: Use text_area instead of code ---
+            # This enables text wrapping and RTL support
+            st.text_area(
+                label="Output",
+                value=normalized_text,
+                height=200,
+                label_visibility="collapsed"  # Hides the small "Output" label
+            )
+
         except Exception as e:
             st.error(f"An error occurred: {e}")
     else:
