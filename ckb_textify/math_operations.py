@@ -10,36 +10,28 @@ MATH_SYMBOLS_MAP = {
     "*": "کەڕەتی",
     "-": "کەم",
     "/": "دابەش",
-    "=": "یەکسانە",
+    "=": "یەکسانە بە",  # Updated
     "^": "توان",
     "%": "لە سەدا",
 }
 
-# Map for common math functions
+# Map for common math functions (Updated with your translations)
 MATH_FUNCTIONS_MAP = {
-    "ln": "لەین",
-    "log": "لۆگ",
-    "sin": "ساین",
-    "cos": "کۆساین",
-    "tan": "تانجێنت",
-    "lim": "لیمێت",
+    "ln": "لۆگاریتمی سروشتی",
+    "log": "لۆگاریتمی",
+    "sin": "ساینی",
+    "cos": "کۆساینی",
+    "tan": "تانجێنتی",
+    "lim": "لیمێتی",
 }
 
 SCIENTIFIC_THRESHOLD = 1_000_000_000_000_000_000_000
 
 # --- 2. REGEX PATTERNS ---
 
-# A "Math Term" can be:
-# 1. A Number (12.5)
-# 2. A Function + Number (ln 4)
-# 3. Just a Function (ln)
-# We use this to detect "Math / Math" patterns.
 func_pattern = "|".join(re.escape(k) for k in MATH_FUNCTIONS_MAP.keys())
-# Regex parts: (Function)? + (Space)? + (Number)
 term_pattern = rf"(?:(?:{func_pattern})\s*)?\d+(?:\.\d+)?|(?:{func_pattern})"
 
-# Matches: Term + Symbol + Term
-# e.g. "5 + 3", "ln 4 / ln 3", "log 10 / 2"
 MATH_EXPRESSION_RE = re.compile(
     rf"({term_pattern})\s*(" +
     r"|".join(re.escape(k) for k in MATH_SYMBOLS_MAP.keys()) +
@@ -59,22 +51,16 @@ def _process_single_term(term_str: str) -> str:
     """
     term_str = term_str.strip()
 
-    # Check if it starts with a function (e.g. "ln 4")
     for func_key, func_val in MATH_FUNCTIONS_MAP.items():
-        # Check if term starts with "ln" (case insensitive)
         if term_str.lower().startswith(func_key):
-            # Remove the function name to get the number part
             number_part = term_str[len(func_key):].strip()
 
-            # If there is a number, convert it
             if number_part:
                 converted_num = convert_number_to_text_handler(number_part)
                 return f"{func_val} {converted_num}"
             else:
-                # It's just "ln"
                 return func_val
 
-    # If no function, it's just a number
     return convert_number_to_text_handler(term_str)
 
 
@@ -136,23 +122,20 @@ def normalize_math_expressions(text: str) -> str:
     Normalizes math expressions, including functions like ln, log, sin.
     """
 
-    # Handle "Negative" (سالب)
     text = NEGATIVE_SIGN_RE.sub(
         lambda m: f"{m.group(1)}سالب {convert_number_to_text_handler(m.group(2))}",
         text
     )
 
-    # Handle "Positive" (کۆ)
     text = POSITIVE_SIGN_RE.sub(
         lambda m: f"{m.group(1)}کۆ {convert_number_to_text_handler(m.group(2))}",
         text
     )
 
-    # Handle Math Expressions (e.g. "ln 4 / ln 3" or "5 + 3")
     def _replace_expression(match):
-        left_term = match.group(1)  # e.g. "ln 4"
-        symbol = match.group(2)  # e.g. "/"
-        right_term = match.group(3)  # e.g. "ln 3"
+        left_term = match.group(1)
+        symbol = match.group(2)
+        right_term = match.group(3)
 
         left_kurdish = _process_single_term(left_term)
         symbol_kurdish = MATH_SYMBOLS_MAP[symbol]

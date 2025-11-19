@@ -4,15 +4,25 @@ import re
 import logging
 from .config import DEFAULT_CONFIG
 from .normalizer import (
-    normalize_digits, normalize_characters, remove_diacritics,
-    standardize_punctuation, normalize_whitespace
+    normalize_digits,
+    normalize_characters,
+    remove_diacritics,
+    standardize_punctuation,
+    normalize_whitespace
 )
 from .symbols import normalize_common_symbols
 from .currency import currency_to_kurdish_text, CURRENCY_MAP
 from .percentage import percentage_to_kurdish_text
 from .date_time import date_to_kurdish_text, time_to_kurdish_text, ALL_SUFFIXES
-from .math_operations import normalize_math_expressions, convert_number_to_text_handler
-from .units import normalize_units, normalize_per_rule, normalize_standalone_units
+from .math_operations import (
+    normalize_math_expressions,
+    convert_number_to_text_handler
+)
+from .units import (
+    normalize_units,
+    normalize_per_rule,
+    normalize_standalone_units
+)
 from .abbreviations import normalize_abbreviations
 from .phone_numbers import normalize_phone_numbers
 from .arabic_names import normalize_arabic_names
@@ -22,14 +32,14 @@ from .technical import normalize_technical
 from .web import normalize_web
 from .latin import normalize_latin
 
-# --- Logging Setup ---
+# Setup Logger
 logger = logging.getLogger("ckb_textify")
 if not logger.hasHandlers():
     logging.basicConfig(level=logging.WARNING, format='%(name)s - %(levelname)s - %(message)s')
 
-# --- Regex Patterns (Pre-compiled) ---
 SUFFIXES = ["یە", "ە", "م", "مان", "ت", "تان", "ی", "یان", "یت"]
 
+# --- Regex Patterns ---
 DATE_PATTERN = re.compile(r"\b(\d{1,4}[/\-]\d{1,2}[/\-]\d{2,4})\b")
 
 time_suffixes_pattern = '|'.join(map(re.escape, ALL_SUFFIXES))
@@ -38,13 +48,18 @@ TIME_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+currency_symbols_pattern = '|'.join(map(re.escape, CURRENCY_MAP.keys()))
 CURRENCY_PATTERN = re.compile(
-    rf"((?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))})\s*\d+(\.\d+)?|\d+(\.\d+)?\s*(?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))}))"
+    rf"((?:{currency_symbols_pattern})\s*\d+(\.\d+)?|\d+(\.\d+)?\s*(?:{currency_symbols_pattern}))"
 )
 
 NUMBER_PATTERN = re.compile(r"(\d+(\.\d+)?)")
 
-PERCENT_PATTERN = re.compile(r"(?<!\d)%\s*(\d+(\.\d+)?)|(\d+(\.\d+)?)\s*%(?!\d)")
+PERCENT_PATTERN = re.compile(
+    r"(?<!\d)%\s*(\d+(\.\d+)?)"
+    r"|"
+    r"(\d+(\.\d+)?)\s*%(?!\d)"
+)
 
 DECIMAL_UNIT_PATTERN = re.compile(r"(\d+\.\d+)\s*([^\W\d_،؛؟]+)?")
 
@@ -63,7 +78,6 @@ def replace_decimal_with_unit(match):
         int_text = number_to_kurdish_text(integer_part)
         if not unit_and_suffix:
             return f"{int_text} و نیو"
-
         unit = unit_and_suffix.strip()
         suffix = ""
         for sfx in sorted(SUFFIXES, key=len, reverse=True):
@@ -71,12 +85,10 @@ def replace_decimal_with_unit(match):
                 unit = unit[:-len(sfx)]
                 suffix = sfx
                 break
-
         if suffix in ["یە", "ە"]:
             niw_text = "نیوە"
         else:
             niw_text = "نیو"
-
         full_suffix = f"{niw_text}{suffix}" if suffix not in ["", "ە", "یە"] else niw_text
         return f"{int_text} {unit} و {full_suffix}"
     else:
@@ -85,6 +97,7 @@ def replace_decimal_with_unit(match):
 
 
 # --- Main Pipeline ---
+
 def normalize_sentence_kurdish(text: str, config: dict = None) -> str:
     """
     Normalize a Kurdish sentence using the full TTS-ready pipeline.
@@ -97,7 +110,7 @@ def normalize_sentence_kurdish(text: str, config: dict = None) -> str:
         cfg.update(config)
 
     try:
-        # 1. Text-to-Text
+        # 1. Text-to-Text Normalization
         if cfg["normalize_characters"]: text = normalize_characters(text)
         if cfg["normalize_digits"]: text = normalize_digits(text)
         if cfg["remove_diacritics"]: text = remove_diacritics(text)
@@ -116,30 +129,31 @@ def normalize_sentence_kurdish(text: str, config: dict = None) -> str:
             text = normalize_standalone_units(text)
         if cfg["per_rule"]: text = normalize_per_rule(text)
 
-        # 4. Technical / Web
+        # 4. Technical / Web / Abbreviations / Names
         if cfg["web"]: text = normalize_web(text)
         if cfg["technical"]: text = normalize_technical(text)
         if cfg["abbreviations"]: text = normalize_abbreviations(text)
         if cfg["arabic_names"]: text = normalize_arabic_names(text)
-        if cfg["latin"]: text = normalize_latin(text)
-        if cfg["symbols"]: text = normalize_common_symbols(text)
 
-        # 5. Math
+        # 5. Math & Money (MOVED UP - Before Latin/Symbols)
         if cfg["math"]: text = normalize_math_expressions(text)
         if cfg["percentage"]: text = PERCENT_PATTERN.sub(lambda m: percentage_to_kurdish_text(m.group()), text)
         if cfg["currency"]: text = CURRENCY_PATTERN.sub(lambda m: currency_to_kurdish_text(m.group()) + " ", text)
 
-        # 6. Decimals & Numbers
+        # 6. Latin & Symbols (Run AFTER Math to protect 'ln', 'sin', etc.)
+        if cfg["latin"]: text = normalize_latin(text)
+        if cfg["symbols"]: text = normalize_common_symbols(text)
+
+        # 7. General Decimals & Numbers
         if cfg["decimals"]: text = DECIMAL_UNIT_PATTERN.sub(replace_decimal_with_unit, text)
         if cfg["integers"]: text = NUMBER_PATTERN.sub(lambda m: convert_number_to_text_handler(m.group()), text)
 
-        # 7. Clean up
+        # 8. Final Clean-up
         text = standardize_punctuation(text)
         text = normalize_whitespace(text)
 
     except Exception as e:
         logger.error(f"Normalization failed: {e}")
-        # Return original text on critical failure to prevent crash
         return text
 
     return text
