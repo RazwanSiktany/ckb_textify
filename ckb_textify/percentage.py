@@ -5,26 +5,22 @@ from .decimal_handler import decimal_to_kurdish_text
 
 def percentage_to_kurdish_text(value: str) -> str:
     """
-    Convert percentage strings like '%15' or '15%' to Kurdish.
-    Handles decimals like 12.5% too.
+    Convert percentage strings like '%15', '15%', '١٥٪' to Kurdish.
     """
     value = value.strip()
 
-    if value.startswith('%'):
-        value = value[1:]
-    elif value.endswith('%'):
-        value = value[:-1]
-
-    value = value.strip().replace(",", "")
+    # Remove both Latin (%) and Arabic (٪) percent symbols
+    clean_value = value.replace("%", "").replace("٪", "").strip()
+    clean_value = clean_value.replace(",", "")
 
     try:
-        if "." in value:
-            number = float(value)
-            text = decimal_to_kurdish_text(number)
+        # Pass the string directly to preserve "93.91" exactly
+        if "." in clean_value:
+            text = decimal_to_kurdish_text(clean_value)
         else:
-            number = int(value)
+            number = int(clean_value)
             text = number_to_kurdish_text(number)
     except ValueError:
-        return value # Return original on error
+        return value
 
     return f"لە سەدا {text}"

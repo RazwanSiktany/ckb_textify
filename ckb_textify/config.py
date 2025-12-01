@@ -4,7 +4,11 @@ DEFAULT_CONFIG = {
     # Foundational
     "normalize_characters": True,
     "normalize_digits": True,
-    "remove_diacritics": True,
+
+    # Diacritics Configuration
+    "diacritics_mode": "convert",  # Options: "convert", "remove", "keep"
+    "shadda_mode": "double",  # Options: "double" (phonetic), "remove" (standard writing)
+    "remove_tatweel": True,
 
     # Expansion Modules
     "date_time": True,

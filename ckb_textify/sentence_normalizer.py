@@ -4,9 +4,10 @@ import re
 import logging
 from .config import DEFAULT_CONFIG
 from .normalizer import (
-    normalize_digits, normalize_characters, remove_diacritics,
+    normalize_digits, normalize_characters,
     standardize_punctuation, normalize_whitespace
 )
+from .diacritics import normalize_diacritics
 from .symbols import normalize_common_symbols
 from .currency import currency_to_kurdish_text, CURRENCY_MAP
 from .percentage import percentage_to_kurdish_text
@@ -21,8 +22,6 @@ from .decimal_handler import decimal_to_kurdish_text
 from .technical import normalize_technical
 from .web import normalize_web
 from .latin import normalize_latin
-
-# --- *** ADDED MISSING IMPORT *** ---
 from .transliteration import normalize_foreign_scripts
 
 # Setup Logger
@@ -43,7 +42,13 @@ CURRENCY_PATTERN = re.compile(
     rf"((?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))})\s*\d+(\.\d+)?|\d+(\.\d+)?\s*(?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))}))"
 )
 NUMBER_PATTERN = re.compile(r"(\d+(\.\d+)?)")
-PERCENT_PATTERN = re.compile(r"(?<!\d)%\s*(\d+(\.\d+)?)|(\d+(\.\d+)?)\s*%(?!\d)")
+
+# --- UPDATED PERCENT REGEX ---
+# Matches both % and ٪
+PERCENT_PATTERN = re.compile(
+    r"(?<!\d)[%٪]\s*(\d+(\.\d+)?)|(\d+(\.\d+)?)\s*[%٪](?!\d)"
+)
+
 DECIMAL_UNIT_PATTERN = re.compile(r"(\d+\.\d+)\s*([^\W\d_،؛؟]+)?")
 
 
@@ -77,7 +82,6 @@ def replace_decimal_with_unit(match):
         full_suffix = f"{niw_text}{suffix}" if suffix not in ["", "ە", "یە"] else niw_text
         return f"{int_text} {unit} و {full_suffix}"
     else:
-        # Use smart handler for scientific notation support
         decimal_text = convert_number_to_text_handler(str(number))
         return f"{decimal_text} {unit_and_suffix}" if unit_and_suffix else decimal_text
 
@@ -91,10 +95,23 @@ def normalize_sentence_kurdish(text: str, config: dict = None) -> str:
         cfg.update(config)
 
     try:
+        # 1. Text-to-Text Normalization
         if cfg["normalize_characters"]: text = normalize_characters(text)
         if cfg["normalize_digits"]: text = normalize_digits(text)
-        if cfg["remove_diacritics"]: text = remove_diacritics(text)
 
+        # Arabic Names (Moved BEFORE Diacritics)
+        # This ensures names like "الله" are handled by dictionary lookup first.
+        if cfg["arabic_names"]: text = normalize_arabic_names(text)
+
+        # Diacritics (Harakat) & Tatweel
+        text = normalize_diacritics(
+            text,
+            mode=cfg.get("diacritics_mode", "convert"),
+            remove_tatweel=cfg.get("remove_tatweel", True),
+            shadda_mode=cfg.get("shadda_mode", "double")
+        )
+
+        # 2. Specific Patterns
         if cfg["date_time"]:
             text = DATE_PATTERN.sub(
                 lambda m: date_to_kurdish_text(m.group(1), "dd/mm/yyyy" if "/" in m.group(1) else "yyyy-mm-dd"), text)
@@ -110,13 +127,13 @@ def normalize_sentence_kurdish(text: str, config: dict = None) -> str:
         if cfg["web"]: text = normalize_web(text)
         if cfg["technical"]: text = normalize_technical(text)
         if cfg["abbreviations"]: text = normalize_abbreviations(text)
-        if cfg["arabic_names"]: text = normalize_arabic_names(text)
+
+        # Removed arabic_names from here (Moved up)
 
         if cfg["math"]: text = normalize_math_expressions(text)
         if cfg["percentage"]: text = PERCENT_PATTERN.sub(lambda m: percentage_to_kurdish_text(m.group()), text)
         if cfg["currency"]: text = CURRENCY_PATTERN.sub(lambda m: currency_to_kurdish_text(m.group()) + " ", text)
 
-        # 6. Foreign Scripts / Latin / Symbols (Run AFTER Math)
         if cfg["foreign"]: text = normalize_foreign_scripts(text)
         if cfg["latin"]: text = normalize_latin(text)
         if cfg["symbols"]: text = normalize_common_symbols(text)
