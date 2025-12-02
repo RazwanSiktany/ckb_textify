@@ -13,6 +13,7 @@ MATH_SYMBOLS_MAP = {
     "=": "یەکسانە بە",
     "^": "توان",
     "%": "لە سەدا",
+    "≈": "نزیکەی",
 }
 
 MATH_FUNCTIONS_MAP = {
@@ -30,12 +31,26 @@ SMALL_THRESHOLD = 0.0001
 
 # --- 2. REGEX PATTERNS ---
 func_pattern = "|".join(re.escape(k) for k in MATH_FUNCTIONS_MAP.keys())
-term_pattern = rf"(?:(?:{func_pattern})\s*)?\d+(?:\.\d+)?|(?:{func_pattern})"
+# Regex for a single term (Number OR Function+Number)
+# handle scientific notation inside terms
+term_pattern = rf"(?:(?:{func_pattern})\s*)?\d+(?:\.\d+)?(?:e[+-]?\d+)?|(?:{func_pattern})"
 
-MATH_EXPRESSION_RE = re.compile(
-    rf"({term_pattern})\s*(" +
-    r"|".join(re.escape(k) for k in MATH_SYMBOLS_MAP.keys()) +
-    rf")\s*({term_pattern})",
+# Regex for Operators
+op_pattern = r"[" + r"".join(re.escape(k) for k in MATH_SYMBOLS_MAP.keys()) + r"]"
+
+# Math Chain Regex (Requires Operator)
+MATH_CHAIN_RE = re.compile(
+    rf"((?:{term_pattern})\s*(?:{op_pattern}\s*(?:{term_pattern})\s*)+)",
+    re.IGNORECASE
+)
+
+# Matches 5e-23, 1.5E+10, etc.
+SCIENTIFIC_NOTATION_RE = re.compile(r"\b\d+(?:\.\d+)?e[+-]?\d+\b", re.IGNORECASE)
+
+# Matches: Function + optional ( + number + optional )
+# e.g. "ln 150", "sin(90)"
+STANDALONE_FUNC_RE = re.compile(
+    rf"\b({func_pattern})\s*\(?\s*(\d+(?:\.\d+)?(?:e[+-]?\d+)?)\s*\)?",
     re.IGNORECASE
 )
 
@@ -50,6 +65,8 @@ def _process_single_term(term_str: str) -> str:
     for func_key, func_val in MATH_FUNCTIONS_MAP.items():
         if term_str.lower().startswith(func_key):
             number_part = term_str[len(func_key):].strip()
+            # Remove potential parens from inside the term string if captured by chain regex
+            number_part = number_part.strip("()")
             if number_part:
                 converted_num = convert_number_to_text_handler(number_part)
                 return f"{func_val} {converted_num}"
@@ -59,9 +76,6 @@ def _process_single_term(term_str: str) -> str:
 
 
 def _format_scientific(num_val: float) -> str:
-    """
-    Helper to format any number into Kurdish scientific notation.
-    """
     sci_str = f"{num_val:.3e}"
     parts = sci_str.split('e')
 
@@ -75,35 +89,29 @@ def _format_scientific(num_val: float) -> str:
 
 
 def convert_number_to_text_handler(number_str: str) -> str:
-    """
-    Smart handler for Integers, Decimals, and Scientific Notation.
-    """
-    # 1. Handle strings that are already scientific (e.g., "5e-23")
+    # 1. Handle scientific notation strings (e.g. "5e-23")
     if "e" in number_str.lower():
         try:
             val = float(number_str)
             return _format_scientific(val)
         except ValueError:
-            pass  # Fall through
+            pass
 
-    # 2. Handle Decimals (Float)
+    # 2. Handle Decimals
     if "." in number_str:
         try:
             num_f = float(number_str)
-            # Check for tiny numbers (Power Method)
             if 0 < abs(num_f) < SMALL_THRESHOLD:
                 return _format_scientific(num_f)
-            # Check for massive numbers
             if abs(num_f) >= LARGE_THRESHOLD:
                 return _format_scientific(num_f)
-
             return decimal_to_kurdish_text(num_f)
         except ValueError:
             return number_str
 
     # 3. Handle Integers
     try:
-        # Handle Leading Zeros
+        # Leading Zeros
         zeros_prefix = ""
         is_all_zeros = False
         if number_str.startswith("0") and len(number_str) > 1:
@@ -125,9 +133,7 @@ def convert_number_to_text_handler(number_str: str) -> str:
             if is_all_zeros: return zeros_text
             zeros_prefix = f"{zeros_text} "
 
-        # Standard Integer
         num = int(number_str)
-
         if num >= LARGE_THRESHOLD:
             return _format_scientific(float(num))
         else:
@@ -140,6 +146,41 @@ def convert_number_to_text_handler(number_str: str) -> str:
 
 
 def normalize_math_expressions(text: str) -> str:
+    # 1. Handle Standalone Scientific Notation
+    text = SCIENTIFIC_NOTATION_RE.sub(
+        lambda m: convert_number_to_text_handler(m.group(0)),
+        text
+    )
+
+    # 2. Handle Math Chains (e.g. "6/6/9" or "ln 4 / ln 3")
+    # MOVED UP: Must run before Standalone Functions to correctly handle operators
+    def _replace_chain(match):
+        full_chain = match.group(0)
+        tokens = re.split(rf"(\s*{op_pattern}\s*)", full_chain)
+
+        result = []
+        for token in tokens:
+            if not token.strip(): continue
+
+            clean_token = token.strip()
+
+            if clean_token in MATH_SYMBOLS_MAP:
+                result.append(MATH_SYMBOLS_MAP[clean_token])
+            else:
+                result.append(_process_single_term(token))
+
+        return " ".join(result)
+
+    text = MATH_CHAIN_RE.sub(_replace_chain, text)
+
+    # 3. Handle Standalone Functions (e.g. ln 150)
+    # Runs after chains to catch anything left over
+    text = STANDALONE_FUNC_RE.sub(
+        lambda m: f"{MATH_FUNCTIONS_MAP[m.group(1).lower()]} {convert_number_to_text_handler(m.group(2))}",
+        text
+    )
+
+    # 4. Handle Unary Signs
     text = NEGATIVE_SIGN_RE.sub(
         lambda m: f"{m.group(1)}سالب {convert_number_to_text_handler(m.group(2))}",
         text
@@ -149,14 +190,4 @@ def normalize_math_expressions(text: str) -> str:
         text
     )
 
-    def _replace_expression(match):
-        left_term = match.group(1)
-        symbol = match.group(2)
-        right_term = match.group(3)
-        left_kurdish = _process_single_term(left_term)
-        symbol_kurdish = MATH_SYMBOLS_MAP[symbol]
-        right_kurdish = _process_single_term(right_term)
-        return f"{left_kurdish} {symbol_kurdish} {right_kurdish}"
-
-    text = MATH_EXPRESSION_RE.sub(_replace_expression, text)
     return text

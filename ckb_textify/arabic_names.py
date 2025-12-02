@@ -1,7 +1,24 @@
 # ckb_textify/arabic_names.py
 import re
 
-# This is the core of your solution. You must add all the
+# --- Quranic Muqatta'at (Disjointed Letters) ---
+MUQATTAAT_MAP = {
+    "الٓمٓصٓ": "ئەلیف لام میم صاد",
+    "الٓمٓر ۚ": "ئەلیف لام میم ڕائ",
+    "كٓهيعٓصٓ": "کاف ھائ عەین صاد",
+    "طسٓمٓ": "طا سین میم",
+    "الٓمٓ": "ئەلیف لام میم",
+    "الٓر ۚ": "ئەلیف لام ڕائ",
+    "طسٓ ۚ": "طا سین",
+    "يسٓ": "یا سین",
+    "صٓ ۚ": "صاد",
+    "قٓ ۚ": "قاف",
+    "نٓ ۚ": "نون",
+    "حمٓ": "حائ میم",
+    "طه": "طاھا",
+}
+
+
 # common names you can think of to this dictionary.
 ARABIC_NAME_MAP = {
     # Key = Arabic spelling, Value = Kurdish pronunciation

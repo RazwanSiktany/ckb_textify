@@ -1,27 +1,9 @@
 # ckb_textify/normalizer.py
 import re
 import unicodedata
+from .arabic_names import MUQATTAAT_MAP
 
 # --- 1. Character Maps ---
-
-# Quranic Muqatta'at (Disjointed Letters)
-# Mapped to their spoken Kurdish form.
-MUQATTAAT_MAP = {
-    "الٓمٓصٓ": "ئەلیف لام میم صاد",
-    "الٓمٓر ۚ": "ئەلیف لام میم ڕائ",
-    "كٓهيعٓصٓ": "کاف ھائ عەین صاد",
-    "طسٓمٓ": "طا سین میم",
-    "الٓمٓ": "ئەلیف لام میم",
-    "الٓر ۚ": "ئەلیف لام ڕائ",
-    "طسٓ ۚ": "طا سین",
-    "يسٓ": "یا سین",
-    "صٓ ۚ": "صاد",
-    "قٓ ۚ": "قاف",
-    "نٓ ۚ": "نون",
-    "حمٓ": "حائ میم",
-    "طه": "طاھا",
-}
-
 CHAR_MAP = {
     # Alif Variants
     'أ': 'ئە',  # Alif Hamza Above
@@ -32,8 +14,8 @@ CHAR_MAP = {
     'ؤ': 'وئ',  # Waw with Hamza
     'ئ': 'ئ',  # Yaa with Hamza
     'وٰ': 'ا',  # Waw with Dagger Alif
-    # 'ٰ': 'ا',    <-- REMOVED (Handled in diacritics.py to protect from Wasla logic)
-    'ٓ': '',  # Maddah (Remove stray maddahs)
+    # 'ٰ': 'ا',    <-- REMOVED
+    'ٓ': '',  # Maddah
     'ٔ': 'ئ',  # Hamza Above
     'ٴ': 'ئ',  # High Hamza
 
@@ -43,7 +25,7 @@ CHAR_MAP = {
 
     # Standard Normalization
     'ك': 'ک',
-    # 'ة': 'ه', (Handled in diacritics.py)
+    # 'ة': 'ه',
     'ي': 'ی',
 }
 
@@ -62,15 +44,19 @@ WASLA_PLACEHOLDER = "\uE000"
 
 # Alif Madda Logic
 ALEF_MADDA = "آ"
-# Regex for Alif Madda at the start of a word
 ALEF_MADDA_START_RE = re.compile(r'(?<![\w\u0640-\u065F\u0670])' + ALEF_MADDA)
 
-WHITESPACE_RE = re.compile(r"\s+")
+# Whitespace Logic
+# Matches horizontal whitespace (space, tab)
+HORIZONTAL_WS_RE = re.compile(r"[ \t]+")
+# Matches vertical whitespace (newlines)
+VERTICAL_WS_RE = re.compile(r"[\n\r]+")
+
 NOISY_PUNCTUATION_RE = re.compile(r"[\(\)\[\]\{\}<>\"“”‘’'«»]")
 HEH_END_OF_WORD_RE = re.compile(rf"{HEH}(\s|$)")
 
 # Heh Rule 4 Regexes
-HEH_LIKE_CHARS = f"[{E_VOWEL}{HEH}{HEH_DOACHASHMEE}]"
+HEH_LIKE_CHARS = f"[{HEH}{HEH_DOACHASHMEE}]"
 VOWELS = f"[{ALEF}{O_VOWEL}{E_VOWEL_WITH_DOT}]"
 HEH_LIKE_BEFORE_VOWEL_RE = re.compile(rf"({HEH_LIKE_CHARS})(?={VOWELS})")
 VOWEL_BEFORE_HEH_LIKE_RE = re.compile(rf"(?<={VOWELS})({HEH_LIKE_CHARS})")
@@ -119,6 +105,7 @@ def normalize_characters(text: str) -> str:
     text = text.replace(WASLA_PLACEHOLDER, ALEF_WASLA)
 
     # 4. Handle Muqatta'at
+
     for src, dest in MUQATTAAT_MAP.items():
         text = text.replace(src, dest)
 
@@ -129,8 +116,7 @@ def normalize_characters(text: str) -> str:
     # 6. Handle Alif Hamza Above
     text = re.sub(r'أ(?=\u064F)', 'ئ', text)
 
-    # 7. Handle Fatha + Hamza Above (e.g. in ٱلْـَٔاخِرَةِ)
-    # Replaces Fatha-Hamza with just Hamza 'ئ' to prevent Fatha becoming 'ە'
+    # 7. Handle Fatha + Hamza Above
     text = text.replace("\u064E\u0654", "ئ")
 
     # 8. Apply Map Replacements
@@ -143,11 +129,13 @@ def normalize_characters(text: str) -> str:
     # 10. Handle Heh Rules
     text = text.replace(f"{HEH}{ZWNJ}", E_VOWEL)
     text = HEH_END_OF_WORD_RE.sub(f"{E_VOWEL}\\1", text)
-    text = text.replace(HEH, HEH_DOACHASHMEE)
 
     # 11. Handle Heh next to Vowels
     text = HEH_LIKE_BEFORE_VOWEL_RE.sub(HEH_DOACHASHMEE, text)
     text = VOWEL_BEFORE_HEH_LIKE_RE.sub(HEH_DOACHASHMEE, text)
+
+    # Final catch-all
+    text = text.replace(HEH, HEH_DOACHASHMEE)
 
     return text
 
@@ -160,4 +148,17 @@ def standardize_punctuation(text: str) -> str:
 
 
 def normalize_whitespace(text: str) -> str:
-    return WHITESPACE_RE.sub(' ', text).strip()
+    """
+    Normalizes whitespace while preserving newlines.
+    1. Collapses multiple horizontal spaces to one.
+    2. Collapses multiple newlines to one.
+    3. Trims the result.
+    """
+    # Collapse spaces/tabs
+    text = HORIZONTAL_WS_RE.sub(' ', text)
+    # Collapse newlines
+    text = VERTICAL_WS_RE.sub('\n', text)
+    # Clean up spaces around newlines
+    text = re.sub(r' *\n *', '\n', text)
+
+    return text.strip()

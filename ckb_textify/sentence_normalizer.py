@@ -39,7 +39,7 @@ TIME_PATTERN = re.compile(
     re.IGNORECASE
 )
 CURRENCY_PATTERN = re.compile(
-    rf"((?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))})\s*\d+(\.\d+)?|\d+(\.\d+)?\s*(?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))}))"
+    rf"((?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))})(?:\s*\d+(\.\d+)?)?|\d+(\.\d+)?\s*(?:{'|'.join(map(re.escape, CURRENCY_MAP.keys()))}))"
 )
 NUMBER_PATTERN = re.compile(r"(\d+(\.\d+)?)")
 

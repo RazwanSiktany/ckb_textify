@@ -71,7 +71,7 @@ URL_RE = re.compile(
 )
 
 
-# --- 4. UPDATED: Logic to Split and Spell ---
+# --- 4. Logic to Split and Spell ---
 def _spell_web_string(text: str) -> str:
     """
     Converts a string (URL/Email) to spoken Kurdish.

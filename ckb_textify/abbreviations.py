@@ -3,10 +3,15 @@ import re
 
 # This map holds the abbreviation and its full-word expansion.
 ABBREVIATIONS_MAP = {
+    "د.خ": " دوردی خوای لەسەر بێت ",
+    "د. خ": " درودی خوای لەسەر بێت ",
+    "د. خ.": " درودی خوای لەسەر بێت ",
     "د.": "دکتۆر",
     "پ.": "پڕۆفیسۆر",
     "ی.پ.": "یاریدەدەری پڕۆفیسۆر",
     "م.": "مامۆستا",
+    "پ.ز.": "پێش زایین ",
+    "پ. ز.": "پێش زایین ",
     # Add any others you can think of, like:
     # "و.": "وەرگێڕانی",
 }

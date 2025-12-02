@@ -50,6 +50,7 @@ test_suites = {
         "m and mm",  # Nouns (should NOT change)
         "نزیکەی 93.91٪ی",  # Smart comma removal
         "تەنیا 7٪ـیان",  # Date formatting
+        " من ٢.٥ کیلۆ ماسیم خوارد",
     ],
 
     # 6. Diacritics & Tajweed
