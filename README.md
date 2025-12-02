@@ -58,7 +58,7 @@ print(normalized)
 # سڵاو لە پیتەر و سی جینپینگ.
 ```
 
-## 🌟 Features (v4.0.0)
+## 🌟 Features (v4.0.1)
 
 ### 1. 🌍 Universal Script Support
 
