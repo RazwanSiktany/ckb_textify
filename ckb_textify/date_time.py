@@ -13,7 +13,7 @@ KURDISH_MONTHS = {
 AM_SUFFIXES = ["AM", "پ.ن", "بەیانی", "پێش نیوەڕۆ", "پێشنیوەڕۆ"]
 PM_SUFFIXES = [
     "PM", "د.ن",
-    "دوای نیوەڕۆ", "دوای نیوەرۆ","دوا نیوەڕۆ",
+    "دوای نیوەڕۆ", "دوای نیوەرۆ", "دوا نیوەڕۆ",
     "پاش نیوەڕۆ", "پاش نیوەرۆ", "پاشنیوەڕۆ",
     "شەو", "ئێوارە", "عەسر", "نیوەڕۆ"
 ]
@@ -44,6 +44,7 @@ def date_to_kurdish_text(date_str: str, format: str = None) -> str:
             elif v2 > 12:
                 month, day = v1, v2
             else:
+                # Default preference for DD/MM
                 day, month = v1, v2
         else:
             return date_str
@@ -93,6 +94,7 @@ def get_kurdish_time_label(hour: int) -> str:
 def strip_suffix(time_str: str) -> tuple[str, str | None]:
     time_str = time_str.strip()
     for suffix in ALL_SUFFIXES:
+        # Matches suffix at end NOT preceded by 'ی'
         pattern = rf"(?<!ی)\s*{re.escape(suffix)}$"
         if re.search(pattern, time_str):
             clean_str = re.sub(pattern, "", time_str).strip()
@@ -114,7 +116,7 @@ def convert_suffix_to_24hour(hour: int, suffix: str | None) -> int:
 def time_to_kurdish_text(time_str: str) -> str:
     time_str = time_str.strip()
 
-    # 1. Check for explicit suffix (e.g., "06:41ی بەیانی")
+    # 1. Check for explicit suffix with 'ی' (e.g., "06:41ی بەیانی")
     suffix_pattern = '|'.join(map(re.escape, ALL_SUFFIXES))
     pattern_with_ye = rf"^(.*?)(ی)\s*({suffix_pattern})$"
     m = re.match(pattern_with_ye, time_str)
@@ -155,7 +157,7 @@ def time_to_kurdish_text(time_str: str) -> str:
         except Exception:
             return time_str
 
-    # 2. Standard Logic (No explicit suffix found)
+    # 2. Standard Logic (No explicit 'ی' suffix found)
     try:
         clean_time, suffix = strip_suffix(time_str)
         hour, minute, second = normalize_time_string(clean_time)
@@ -163,20 +165,41 @@ def time_to_kurdish_text(time_str: str) -> str:
     except Exception:
         return time_str
 
+    # --- UPDATED LOGIC HERE ---
     hour_12 = hour % 12 or 12
     hour_text = number_to_kurdish_text(hour_12)
-    label = get_kurdish_time_label(hour)
 
-    if minute == 30 and (second is None or second == 0):
-        return f"{hour_text} و نیوی {label}"
-    if minute == 0 and (second is None or second == 0):
-        return f"{hour_text}ی {label}"
+    # If we found a suffix (e.g. "PM", "بەیانی", "عەسر"), use the label logic
+    if suffix:
+        label = get_kurdish_time_label(hour)
 
-    minute_text = number_to_kurdish_text(minute)
-    result = f"{hour_text} و {minute_text} خولەکی {label}"
+        if minute == 30 and (second is None or second == 0):
+            return f"{hour_text} و نیوی {label}"
+        if minute == 0 and (second is None or second == 0):
+            return f"{hour_text}ی {label}"
 
-    if second is not None:
-        second_text = number_to_kurdish_text(second)
-        result += f" و {second_text} چرکە"
+        minute_text = number_to_kurdish_text(minute)
+        result = f"{hour_text} و {minute_text} خولەکی {label}"
 
-    return result
+        if second is not None:
+            second_text = number_to_kurdish_text(second)
+            result += f" و {second_text} چرکە"
+
+        return result
+
+    else:
+        # If NO suffix was found (e.g. "4:00"), treat as simple numbers
+        if minute == 0 and (second is None or second == 0):
+            return hour_text  # "4:00" -> "چوار"
+
+        if minute == 30 and (second is None or second == 0):
+            return f"{hour_text} و نیو"  # "4:30" -> "چوار و نیو"
+
+        minute_text = number_to_kurdish_text(minute)
+        result = f"{hour_text} و {minute_text}"  # "4:15" -> "چوار و پازدە"
+
+        if second is not None:
+            second_text = number_to_kurdish_text(second)
+            result += f" و {second_text}"
+
+        return result

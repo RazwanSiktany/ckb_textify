@@ -76,7 +76,7 @@ test_suites = {
         "URL: www.rudaw.net",
         "UUID: 123e4567-e89b-12d3",         # Char-by-char
         "MAC: 00:1A:2B:3C:4D:5E",
-        "بِسْمِ ٱللَّهِ",
+        "1A-B2",
     ]
 }
 
