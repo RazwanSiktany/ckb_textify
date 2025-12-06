@@ -5,10 +5,13 @@ DEFAULT_CONFIG = {
     "normalize_characters": True,
     "normalize_digits": True,
 
-    # Diacritics Configuration
-    "diacritics_mode": "convert",  # Options: "convert", "remove", "keep"
-    "shadda_mode": "double",  # Options: "double" (phonetic), "remove" (standard writing)
+    # Diacritics
+    "diacritics_mode": "convert",
+    "shadda_mode": "double",
     "remove_tatweel": True,
+
+    # Emoji Configuration
+    "emoji_mode": "remove",  # Options: "remove" (Def), "convert", "ignore"
 
     # Expansion Modules
     "date_time": True,
@@ -24,6 +27,9 @@ DEFAULT_CONFIG = {
     "technical": True,
     "abbreviations": True,
     "arabic_names": True,
+
+    "chat_speak": False,
+
     "latin": True,
     "foreign": True,
     "symbols": True,

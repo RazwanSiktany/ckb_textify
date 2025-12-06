@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ckb-textify"
-version = "4.0.1"
+version = "4.1.1"
 description = "A comprehensive Text Normalization library for Central Kurdish (Sorani)."
 readme = "README.md"
 requires-python = ">=3.6"

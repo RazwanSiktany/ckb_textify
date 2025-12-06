@@ -14,7 +14,6 @@ CHAR_MAP = {
     'ؤ': 'وئ',  # Waw with Hamza
     'ئ': 'ئ',  # Yaa with Hamza
     'وٰ': 'ا',  # Waw with Dagger Alif
-    # 'ٰ': 'ا',    <-- REMOVED
     'ٓ': '',  # Maddah
     'ٔ': 'ئ',  # Hamza Above
     'ٴ': 'ئ',  # High Hamza

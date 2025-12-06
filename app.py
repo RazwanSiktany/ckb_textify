@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 # Custom CSS for Right-to-Left (RTL) support and Font Styling
-# Sets font to Calibri 15px for input and output areas
+# Sets font to Calibri 20px for input and output areas as requested
 st.markdown("""
     <style>
     /* Target all text areas (Input and Output) */
@@ -56,13 +56,23 @@ opt_names = st.sidebar.checkbox("Arabic Names", True)
 opt_latin = st.sidebar.checkbox("Latin/English Transliteration", True)
 opt_foreign = st.sidebar.checkbox("Foreign Scripts (Chinese/Russian)", True)
 opt_symbols = st.sidebar.checkbox("Symbols (@, #)", True)
+opt_chat = st.sidebar.checkbox("Chat Speak (7 -> ح)", False)
 
-# 3. Numbers
+# 3. Emojis
+st.sidebar.header("Emojis")
+emoji_mode = st.sidebar.selectbox(
+    "Emoji Mode",
+    options=["remove", "convert", "ignore"],
+    index=0,
+    help="'remove': Delete all, 'convert': Translate to text, 'ignore': Keep as is"
+)
+
+# 4. Numbers
 st.sidebar.header("Number Types")
 opt_decimal = st.sidebar.checkbox("Decimal Numbers", True)
 opt_integer = st.sidebar.checkbox("Integer Numbers", True)
 
-# 4. Diacritics & Harakat
+# 5. Diacritics & Harakat
 st.sidebar.header("Quranic Diacritics (حەرەکات)")
 diacritics_mode = st.sidebar.selectbox(
     "Diacritics Mode",
@@ -80,9 +90,15 @@ remove_tatweel = st.sidebar.checkbox("Remove Tatweel (ـ)", True)
 
 # Compile Configuration Dictionary
 user_config = {
+    # Foundational defaults (hidden from UI to keep it clean, but can be added if needed)
+    "normalize_characters": True,
+    "normalize_digits": True,
+
+    # User selections
     "diacritics_mode": diacritics_mode,
     "shadda_mode": shadda_mode,
     "remove_tatweel": remove_tatweel,
+    "emoji_mode": emoji_mode,
     "phone_numbers": opt_phone,
     "date_time": opt_date,
     "units": opt_units,
@@ -97,6 +113,7 @@ user_config = {
     "latin": opt_latin,
     "foreign": opt_foreign,
     "symbols": opt_symbols,
+    "chat_speak": opt_chat,
     "decimals": opt_decimal,
     "integers": opt_integer
 }

@@ -11,12 +11,14 @@ from .units import normalize_units, normalize_per_rule, normalize_standalone_uni
 from .abbreviations import normalize_abbreviations
 from .phone_numbers import normalize_phone_numbers
 from .arabic_names import normalize_arabic_names
-from .diacritics import normalize_diacritics
 from .technical import normalize_technical
 from .web import normalize_web
 from .latin import normalize_latin
 from .transliteration import normalize_foreign_scripts
+from .chat_speak import normalize_chat_speak
+from .emojis import normalize_emojis
 from .config import DEFAULT_CONFIG
+from .diacritics import normalize_diacritics
 
 from .sentence_normalizer import normalize_sentence_kurdish, convert_all
 
@@ -39,7 +41,9 @@ __all__ = [
     "normalize_web",
     "normalize_latin",
     "normalize_foreign_scripts",
-    "DEFAULT_CONFIG",
+    "normalize_chat_speak",
+    "normalize_emojis",
     "normalize_diacritics",
+    "DEFAULT_CONFIG",
     "convert_all",
 ]
