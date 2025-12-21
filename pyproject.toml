@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ckb-textify"
+version = "5.0.0"
+description = "Industrial-strength Text Normalization and Transliteration for Central Kurdish (Sorani)"
+readme = "README.md"
+authors = [
+  { name = "Razwan M. Haji", email = "razwan.siktany778@gmail.com" },
+]
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Text Processing :: Linguistic",
+    "Natural Language :: Central Kurdish",
+]
+keywords = ["kurdish", "sorani", "normalization", "transliteration", "nlp", "tts", "text-processing", "Central-Kurdish"]
+requires-python = ">=3.7"
+dependencies = [
+    "eng-to-ipa>=0.0.2",
+    "anyascii>=0.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "twine>=4.0",
+    "build>=0.10.0",
+]
+app = [
+    "streamlit>=1.20.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/RazwanSiktany/ckb_textify"
+"Live Demo" = "https://ckb-textify.streamlit.app/"
+"Source Code" = "https://github.com/RazwanSiktany/ckb_textify"
+"Issue Tracker" = "https://github.com/RazwanSiktany/ckb_textify/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
