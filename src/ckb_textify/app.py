@@ -1,3 +1,11 @@
+import sys
+import os
+# Fix imports for Streamlit Cloud
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.abspath(os.path.join(current_dir, '..'))
+if src_dir not in sys.path:
+    sys.path.append(src_dir)
+
 import streamlit as st
 from ckb_textify.core.pipeline import Pipeline
 from ckb_textify.core.types import NormalizationConfig
