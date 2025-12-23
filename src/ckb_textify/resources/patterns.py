@@ -1,4 +1,3 @@
-DEFINITE_ARTICLES = ["ەکە", "ەکان","یەکە","یەکان","یش"]
 import re
 
 # --- 1. Rigid Patterns (High Priority - Tokenizer) ---
@@ -10,12 +9,12 @@ EMAIL_PATTERN = r"\b[a-zA-Z0-9._%+\-\u0080-\uFFFF]+@[a-zA-Z0-9.\-\u0080-\uFFFF]+
 
 # Phone Numbers
 PHONE_PATTERN = r"""
-    (?:\b(?=\d)|(?=\+))             
-    (?:(?:\+|00)\s*964[\s-]?)?      
-    (?:0?7[5789]\d)                 
-    (?:[\s-]?\d{3})                 
-    (?:[\s-]?\d{2})                 
-    (?:[\s-]?\d{2})                 
+    (?:\b(?=\d)|(?=\+))              
+    (?:(?:\+|00)\s*964[\s-]?)?       
+    (?:0?7[5789]\d)                  
+    (?:[\s-]?\d{3})                  
+    (?:[\s-]?\d{2})                  
+    (?:[\s-]?\d{2})                  
     \b
 """
 
@@ -54,13 +53,13 @@ TOKENIZER_REGEX = re.compile(
     (?P<EMAIL>{EMAIL_PATTERN})|
     (?P<PHONE>{PHONE_PATTERN})|
     (?P<TECHNICAL>{MAC_PATTERN}|{UUID_PATTERN}|{HASHTAG_PATTERN}|{MENTION_PATTERN})|
-    (?P<DATE>{DATE_PATTERN})|        
-    (?P<TIME>{TIME_PATTERN})|        
+    (?P<DATE>{DATE_PATTERN})|         
+    (?P<TIME>{TIME_PATTERN})|         
     (?P<UNIT_SPECIAL>{DEGREE_UNIT_PATTERN})|
-    (?P<SUBSCRIPT>{SUBSCRIPT_PATTERN})|   
+    (?P<SUBSCRIPT>{SUBSCRIPT_PATTERN})|    
     (?P<SUPERSCRIPT>{SUPERSCRIPT_PATTERN})| 
     (?P<NUMBER>{NUMBER_PATTERN})|
-    (?P<WORD>{WORD_PATTERN})|        
+    (?P<WORD>{WORD_PATTERN})|         
     (?P<SYMBOL>{SYMBOL_PATTERN})
     """,
     re.VERBOSE | re.IGNORECASE
@@ -81,20 +80,24 @@ BASE_SUFFIXES = [
 ]
 
 # Definite Articles
-DEFINITE_ARTICLES = ["ەکە", "ەکان","یەکە","یەکان","یش"]
+DEFINITE_ARTICLES = ["ەکە", "ەکان", "یەکە", "یەکان", "یش"]
 
 # Generate all combinations
 SUFFIXES_LIST = BASE_SUFFIXES + DEFINITE_ARTICLES + [
     f"{art}{sfx}" for art in DEFINITE_ARTICLES for sfx in BASE_SUFFIXES
 ]
+# Sort by length (descending) to ensure greedy regex matching
+SUFFIXES_LIST.sort(key=len, reverse=True)
 
 SUFFIX_REGEX_PART = "|".join(SUFFIXES_LIST)
 
 # Expanded Unit Regex with new units
+# Multiline string for Verbose regex must rely on whitespace handling
+# We ensure lines end with pipes where needed to connect alternatives
 UNIT_CORE = r"""
     km|m|cm|mm|kg|g|mg|l|ml|
     in|ft|yd|mi|gal|oz|lb|ton|mph|ms|
-    K|J|kJ|cal|kcal|Wh|kWh|kW|W|MW|HP|Pa|kPa|psi|V|mV|A|mA|Ω|N|kN||mAh|
+    K|J|kJ|cal|kcal|Wh|kWh|kW|W|MW|HP|Pa|kPa|psi|V|mV|A|mA|Ω|N|kN|mAh|
     کیلۆمەتر|مەتر|سانتیمەتر|میلیمەتر|کم|
     کیلۆگرام|گرام|میلیگرام|
     لیتر|میلیلیتر|

@@ -24,10 +24,10 @@ class SymbolNormalizer(Module):
         "≈": "نزیکەی",
         "=": "یەکسانە بە",
         "+": "لەگەڵ",
-        "-": "داش",
+        # "-": "داش",  <-- Handled dynamically in process()
         "*": "کەڕەتی",
         "×": "کەڕەتی",
-        "/": "دابەش",
+        "/": "سلاش",  # Changed from "دابەش" to "سلاش" for general text
         "÷": "دابەش",
         "±": "کەم کۆ",
         "√": "ڕەگی دووجای",
@@ -35,18 +35,57 @@ class SymbolNormalizer(Module):
         "%": "لەسەدا",
         "#": "ھاشتاگ",
         "^": "توان",
+        "∞": "بێ کۆتا",
     }
 
     # --- Punctuation Normalization Map ---
     PUNCTUATION_NORM_MAP = {
         '،': ',',
         '٬': ',',
+        '٫': ',',
         '؟': '?',
+        # Bullet Points -> Full Stop (for TTS rhythm)
+        '•': '.', '●': '.', '○': '.',
+        '▪': '.', '■': '.',
+        '⁃': '.', '‣': '.',
+        '➢': '.', '➣': '.', '➤': '.',
+        '–': '.', '—': '.',  # Em/En dashes often used as bullets or pauses
     }
 
     # --- Allowed Punctuation for TTS ---
     # FIX: Added '|' to allow pause markers through the cleanup
     ALLOWED_PUNCTUATION = {".", ",", "!", "?", ":", "|"}
+
+    # --- Pre-compiled Regex Patterns for Optimization ---
+
+    # Regex for ANY valid character we want to keep AS IS.
+    VALID_CHAR_RE = re.compile(
+        r"["
+        r"a-zA-Z0-9"
+        r"\u0080-\u02AF"  # Latin Extended & IPA
+        r"\u0300-\u036F"  # Combining Diacritics
+        r"\u0370-\u03FF"  # Greek
+        r"\u0400-\u04FF"  # Cyrillic
+        r"\u0600-\u06FF"  # Arabic/Kurdish
+        r"\u1E00-\u1EFF"  # Latin Extended Additional
+        r"\u2300-\u23FF"  # Misc Technical
+        r"\u2600-\u27BF"  # Misc Symbols
+        r"\u4E00-\u9FFF"  # CJK Unified Ideographs
+        r"\u3040-\u309F"  # Hiragana
+        r"\u30A0-\u30FF"  # Katakana
+        r"\uAC00-\uD7AF"  # Hangul Syllables
+        r"\u1100-\u11FF"  # Hangul Jamo
+        r"\uFE00-\uFE0F"  # Variation Selectors
+        r"\U00010000-\U0010FFFF"  # Supplementary Planes (Emojis)
+        r"\u2070-\u209F"  # Superscripts/Subscripts
+        r"\u00B2\u00B3\u00B9"  # Specific Superscripts
+        r"\u00BC-\u00BE\u2150-\u215E\u2189"  # Fractions
+        r"\.\,\!\?\:\|\s"  # Punctuation & Whitespace
+        r"]"
+    )
+
+    WHITESPACE_RE = re.compile(r'\s+')
+    DIGIT_WORD_RE = re.compile(r'\b\d+\b')
 
     @property
     def name(self) -> str:
@@ -59,41 +98,38 @@ class SymbolNormalizer(Module):
     def process(self, tokens: List[Token]) -> List[Token]:
         new_tokens = []
 
-        # Regex for ANY valid character we want to keep AS IS.
-        # Includes:
-        # - Latin, Digits, Arabic/Kurdish
-        # - CJK (\u4E00-\u9FFF)
-        # - Hiragana (\u3040-\u309F) & Katakana (\u30A0-\u30FF)  <-- ADDED
-        # - Hangul (\uAC00-\uD7AF) & Jamo (\u1100-\u11FF)       <-- ADDED
-        # - Greek, Cyrillic
-        # - Punctuation, Whitespace
-        # - Emojis & Symbols
-        VALID_CHAR_RE = re.compile(
-            r"["
-            r"a-zA-Z0-9"
-            r"\u0080-\u02AF"  # Latin Extended & IPA
-            r"\u0300-\u036F"  # Combining Diacritics
-            r"\u0370-\u03FF"  # Greek
-            r"\u0400-\u04FF"  # Cyrillic
-            r"\u0600-\u06FF"  # Arabic/Kurdish
-            r"\u1E00-\u1EFF"  # Latin Extended Additional
-            r"\u2300-\u23FF"  # Misc Technical
-            r"\u2600-\u27BF"  # Misc Symbols
-            r"\u4E00-\u9FFF"  # CJK Unified Ideographs
-            r"\u3040-\u309F"  # Hiragana
-            r"\u30A0-\u30FF"  # Katakana
-            r"\uAC00-\uD7AF"  # Hangul Syllables
-            r"\u1100-\u11FF"  # Hangul Jamo
-            r"\uFE00-\uFE0F"  # Variation Selectors
-            r"\U00010000-\U0010FFFF"  # Supplementary Planes (Emojis)
-            r"\u2070-\u209F"  # Superscripts/Subscripts
-            r"\u00B2\u00B3\u00B9"  # Specific Superscripts
-            r"\u00BC-\u00BE\u2150-\u215E\u2189"  # Fractions
-            r"\.\,\!\?\:\|\s"  # Punctuation & Whitespace
-            r"]"
-        )
-
         for i, token in enumerate(tokens):
+
+            # --- Rule 0: Dynamic Hyphen Handling ---
+            # Distinguish between List Markers (1- or Bullet -) and Word Separators (Word - Word)
+            if token.text == "-" or token.text == "−":
+                prev = tokens[i - 1] if i > 0 else None
+                is_list_marker = False
+
+                # Case A: Start of text or Start of Line (detected via whitespace)
+                if prev is None:
+                    if token.whitespace_after:
+                        is_list_marker = True
+                elif prev.whitespace_after and "\n" in prev.whitespace_after:
+                    if token.whitespace_after:
+                        is_list_marker = True
+
+                # Case B: After a Number (e.g. 1-)
+                # Note: Previous modules converted numbers to Words, so we check original_text
+                elif prev and re.match(r'^\d+$', prev.original_text):
+                    is_list_marker = True
+
+                if is_list_marker:
+                    token.text = "."  # Treat as pause for TTS
+                    token.type = TokenType.SYMBOL
+                    # Fall through to standard processing to ensure it passes ALLOWED checks
+                else:
+                    # Case C: Separator -> "dash"
+                    token.text = " داش "
+                    token.type = TokenType.WORD
+                    token.whitespace_after = " "
+                    new_tokens.append(token)
+                    continue
 
             # --- Rule 1: Spoken Symbols ---
             if token.text in self.SPOKEN_SYMBOLS_MAP:
@@ -122,7 +158,7 @@ class SymbolNormalizer(Module):
             # SYMBOL type check
             if token.type == TokenType.SYMBOL:
                 # Keep allowed punctuation OR Emojis that were tokenized as symbols
-                if text in self.ALLOWED_PUNCTUATION or VALID_CHAR_RE.match(text):
+                if text in self.ALLOWED_PUNCTUATION or self.VALID_CHAR_RE.match(text):
                     token.text = text
                     new_tokens.append(token)
                 else:
@@ -137,11 +173,11 @@ class SymbolNormalizer(Module):
                 if char in CUSTOM_CHAR_MAP or char.lower() in CUSTOM_CHAR_MAP:
                     cleaned_parts.append(char)
                 # 2. Keep if it matches standard valid regex
-                elif VALID_CHAR_RE.match(char):
+                elif self.VALID_CHAR_RE.match(char):
                     cleaned_parts.append(char)
 
             cleaned_text = "".join(cleaned_parts)
-            cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+            cleaned_text = self.WHITESPACE_RE.sub(' ', cleaned_text).strip()
 
             # Safety Check: If the token contains ONLY Variation Selectors
             if not cleaned_text.strip(
@@ -162,7 +198,7 @@ class SymbolNormalizer(Module):
                 except:
                     return m.group(0)
 
-            cleaned_text = re.sub(r'\b\d+\b', _replace_num, cleaned_text)
+            cleaned_text = self.DIGIT_WORD_RE.sub(_replace_num, cleaned_text)
 
             token.text = cleaned_text
             new_tokens.append(token)

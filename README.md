@@ -1,4 +1,4 @@
-# 🦁 ckb-textify v2
+# 🦁 ckb-textify
 
 [![PyPI version](https://badge.fury.io/py/ckb-textify.svg)](https://badge.fury.io/py/ckb-textify)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

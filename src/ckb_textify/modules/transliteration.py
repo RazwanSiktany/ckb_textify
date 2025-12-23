@@ -35,6 +35,22 @@ class TransliterationNormalizer(Module):
     # Added \u0400-\u04FF (Cyrillic) and \u0370-\u03FF (Greek)
     MIXED_SCRIPT_RE = re.compile(r"^([a-zA-Z0-9\u0400-\u04FF\u0370-\u03FF]+)([\u0600-\u06FF]+)$")
 
+    # Optimization: Pre-compiled regex for IPA stress markers
+    IPA_STRESS_RE = re.compile(r"[ˈˌ]")
+
+    # Optimization: Build Translation Table for fast custom char replacement
+    # We construct this once at class level
+    _trans_dict = {}
+    for k, v in CUSTOM_CHAR_MAP.items():
+        if len(k) == 1:
+            _trans_dict[ord(k)] = v
+            # Add uppercase variant if not explicitly in map
+            uk = k.upper()
+            if len(uk) == 1 and uk != k and ord(uk) not in _trans_dict:
+                _trans_dict[ord(uk)] = v.capitalize()
+
+    TRANS_TABLE = _trans_dict
+
     @property
     def name(self) -> str:
         return "TransliterationNormalizer"
@@ -76,19 +92,9 @@ class TransliterationNormalizer(Module):
     def _normalize_custom_chars(self, text: str) -> str:
         """
         Replaces specific foreign characters with their Latin phonetic equivalents
-        before any other processing.
+        using fast string translation.
         """
-        res = []
-        for char in text:
-            if char in CUSTOM_CHAR_MAP:
-                res.append(CUSTOM_CHAR_MAP[char])
-            elif char.lower() in CUSTOM_CHAR_MAP:
-                 # fallback to lowercase map if uppercase not found
-                 val = CUSTOM_CHAR_MAP[char.lower()]
-                 res.append(val.capitalize() if char.isupper() else val)
-            else:
-                res.append(char)
-        return "".join(res)
+        return text.translate(self.TRANS_TABLE)
 
     def _process_latin_text(self, text: str) -> str:
         # 0. Pre-normalize Custom Chars (Extended Latin, Greek, Cyrillic)
@@ -133,7 +139,7 @@ class TransliterationNormalizer(Module):
         ipa_text = ipa.convert(word)
         if "*" in ipa_text: return None
 
-        ipa_text = re.sub(r"[ˈˌ]", "", ipa_text)
+        ipa_text = self.IPA_STRESS_RE.sub("", ipa_text)
         kurdish_word = ""
 
         if len(ipa_text) > 0 and ipa_text[0] in IPA_VOWELS:

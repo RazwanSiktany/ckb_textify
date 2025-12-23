@@ -98,6 +98,7 @@ test_suites = {
         "Idgham: مَنْ يَقُول",  # N -> Y
         "Shadda: مُحَمَّد",  # Doubling
         "Silent Alif: خَلَوْا۟",
+        "Silent Alif:  ٱلَّذِينَ",
     ],
 
     "💻 Technical & Web": [
@@ -109,9 +110,6 @@ test_suites = {
         "Mixed Code: 8-αβγ123",  # Hyphenated Code -> Spell out
         "Negative Number: -αβγ123",  # Leading Hyphen -> Read as Number (after symbol cleaning)
         "Hash/Mention: #Kurdistan @User_1",
-        "٢.٥ بزن",
-        "5000 IQDە",
-        "5000 IQD ە",
         "#Kurdistan",
         "1999 - 2005",
     ]

@@ -75,6 +75,9 @@ with st.sidebar.expander("🗣️ Linguistics", expanded=True):
     enable_linguistics = st.checkbox("Text Cleanup (Names/Abbr)", value=True)
     enable_transliteration = st.checkbox("Transliteration (English)", value=True)
     enable_diacritics = st.checkbox("Diacritics (Quranic)", value=True)
+    enable_pause = st.checkbox("Pause Markers (TTS)", value=False, help="Adds | between phone number groups")
+    # STRICTLY FALSE BY DEFAULT
+    enable_ali_k = st.checkbox("Ali-K Decoding", value=False, help="Convert legacy font text (e.g. ضؤني) to Unicode")
 
 # 2. Advanced Modes
 st.sidebar.markdown("---")
@@ -129,6 +132,8 @@ if process_btn and input_text:
         enable_linguistics=enable_linguistics,
         enable_transliteration=enable_transliteration,
         enable_diacritics=enable_diacritics,
+        enable_pause_markers=enable_pause,
+        decode_ali_k=enable_ali_k,  # Pass the UI state to config
         emoji_mode=emoji_mode,
         diacritics_mode=diacritics_mode,
         shadda_mode=shadda_mode
@@ -153,7 +158,18 @@ elif process_btn and not input_text:
 
 # --- Footer ---
 st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: grey;'>Built with ❤️ for Kurdish Language Technology</div>",
-    unsafe_allow_html=True
-)
+# Centered Footer using Columns and HTML
+col_footer_1, col_footer_2, col_footer_3 = st.columns([1, 4, 1])
+with col_footer_2:
+    st.markdown(
+        """
+        <div style='text-align: center;'>
+            <b>Developed by Razwan M. Haji</b><br>
+            <a href="https://github.com/RazwanSiktany/ckb_textify" target="_blank" style="text-decoration: none;">GitHub Repo</a> | 
+            <a href="https://pypi.org/project/ckb-textify/" target="_blank" style="text-decoration: none;">PyPI Package</a><br>
+            <br>
+            <small style='color: grey;'>Built with ❤️ for Kurdish Language Technology</small>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )

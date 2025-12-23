@@ -23,6 +23,9 @@ class NumberNormalizer(Module):
     # Imported from patterns.py now
     SORTED_SUFFIXES = sorted(SUFFIXES_LIST, key=len, reverse=True)
 
+    # Optimization: Pre-compiled Regex Patterns
+    LATIN_CHARS_RE = re.compile(r'[a-zA-Z]')
+
     @property
     def name(self) -> str:
         return "NumberNormalizer"
@@ -142,7 +145,7 @@ class NumberNormalizer(Module):
                             # FIX: Check if the word contains Latin characters
                             # If it is English/Latin (e.g. "Pro", "kg"), DO NOT apply the half rule.
                             # We want "2.5 Pro" -> "Duu u Niw Pro", NOT "Duu Pro u Niw"
-                            is_latin = bool(re.search(r'[a-zA-Z]', next_t.text))
+                            is_latin = bool(self.LATIN_CHARS_RE.search(next_t.text))
 
                             # Check if the base word is in the EXCLUSION list AND not Latin
                             if base_word not in EXCLUDED_HALF_RULE_WORDS and not is_latin:

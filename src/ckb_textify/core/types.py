@@ -52,6 +52,9 @@ class NormalizationConfig:
     enable_transliteration: bool = True
     enable_diacritics: bool = True
 
+    # --- Pre-processing ---
+    decode_ali_k: bool = False
+
     # --- Behaviors ---
     emoji_mode: str = "remove"
     diacritics_mode: str = "convert"

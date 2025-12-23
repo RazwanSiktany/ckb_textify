@@ -11,6 +11,9 @@ class LinguisticsNormalizer(Module):
     and general Unicode normalization specific to Sorani.
     """
 
+    # Optimization: Pre-compute translation table for fast character replacement
+    TRANS_TABLE = str.maketrans(CHAR_MAP)
+
     @property
     def name(self) -> str:
         return "LinguisticsNormalizer"
@@ -120,11 +123,8 @@ class LinguisticsNormalizer(Module):
         return [t for t in tokens if t.text]
 
     def _normalize_chars(self, text: str) -> str:
-        """Applies character mapping (e.g., Arabic Kaf to Kurdish Kaf)."""
-        res = []
-        for char in text:
-            res.append(CHAR_MAP.get(char, char))
-        return "".join(res)
+        """Applies character mapping (e.g., Arabic Kaf to Kurdish Kaf) using translate."""
+        return text.translate(self.TRANS_TABLE)
 
     def _get_next(self, tokens: List[Token], i: int) -> Token | None:
         """Helper to get the next token."""

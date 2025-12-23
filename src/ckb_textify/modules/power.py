@@ -114,9 +114,3 @@ class PowerNormalizer(Module):
 
     def _get_prev(self, tokens: List[Token], i: int) -> Token | None:
         return tokens[i - 1] if i > 0 else None
-
-    def _apply_izhafa(self, text: str) -> str:
-        """Adds 'i' or 'y' for possession/connection (e.g. Metr -> Metri)."""
-        if text.endswith(('ا', 'ە', 'ێ', 'ۆ', 'و', 'ی')):
-            return text + "ی"
-        return text + "ی"

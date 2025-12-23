@@ -15,7 +15,6 @@ class CurrencyNormalizer(Module):
     # Map: Symbol/Code -> (Main Unit Kurdish Name, Sub Unit Kurdish Name, Sub Unit Factor)
     CURRENCY_MAP = {
         "IQD": ("دیناری عێڕاقی", "فلس", 1000),
-        "د.ع": ("دیناری عێڕاقی", "فلس", 1000),  # Included for context, but handled as split tokens
         "$": ("دۆلار", "سەنت", 100),
         "USD": ("دۆلار", "سەنت", 100),
         "€": ("یۆرۆ", "سەنت", 100),
@@ -97,10 +96,17 @@ class CurrencyNormalizer(Module):
 
             # --- 3. Standard Currency Check (IQD, $, USD) ---
             # Detect Suffix (e.g. IQDە -> IQD + ە)
-            core_currency = token.text
+            core_currency = ""
             suffix_found = ""
 
-            if token.text not in self.CURRENCY_MAP:
+            # Check exact match first
+            if token.text in self.CURRENCY_MAP:
+                core_currency = token.text
+            # Check uppercase match (e.g. iqd -> IQD)
+            elif token.text.upper() in self.CURRENCY_MAP:
+                core_currency = token.text.upper()
+            else:
+                # Check suffix extraction
                 core_currency, suffix_found = self._extract_suffix(token.text)
 
             if core_currency in self.CURRENCY_MAP:
@@ -132,26 +138,9 @@ class CurrencyNormalizer(Module):
                     # If we found a suffix on a standalone currency (e.g. IQDە -> Dinari Iraqiye)
                     # We insert the suffix as a new token so GrammarNormalizer can pick it up
                     if suffix_found:
-                        # Insert suffix token next
-                        # Since we are iterating with 'while', inserting changes indices.
-                        # Easier strategy: Append suffix to whitespace or rely on GrammarNormalizer?
-                        # GrammarNormalizer needs a separate token.
-                        # We can just change CURRENT token to "Dinari Iraqi" and INSERT suffix next.
-
-                        # However, strictly splitting token in loop is complex.
-                        # Alternative: Just handle grammar here for standalone case.
-                        # But GrammarNormalizer logic (vowel check) is best kept there.
-
-                        # Let's use the same trick as Case A: keep the token alive as the suffix.
-                        # But wait, 'token' IS the currency word here.
-                        # So we set token.text = main_unit.
-                        # And we need to ADD the suffix.
-                        # Ideally, we insert a token.
                         tokens.insert(i + 1, Token(suffix_found, suffix_found, TokenType.WORD,
                                                    whitespace_after=token.whitespace_after))
                         token.whitespace_after = ""  # Connect immediate
-                        # We increment i once more to skip the inserted suffix in next loop (it's a suffix, Currency won't match it)
-                        # But suffix 'ە' is not in CURRENCY_MAP, so next loop will just skip it.
                         pass
 
             i += 1
@@ -166,8 +155,12 @@ class CurrencyNormalizer(Module):
         for sfx in self.SUFFIXES:
             if clean_text.endswith(sfx):
                 potential_core = clean_text[:-len(sfx)]
+                # Check Exact Match
                 if potential_core in self.CURRENCY_MAP:
                     return potential_core, sfx
+                # Check Upper Match
+                if potential_core.upper() in self.CURRENCY_MAP:
+                    return potential_core.upper(), sfx
         return text, ""
 
     def _convert_currency(self, number_token: Token, symbol_token: Token, info: Tuple[str, str, int], suffix: str = ""):
@@ -208,15 +201,7 @@ class CurrencyNormalizer(Module):
         if suffix:
             symbol_token.text = suffix
             symbol_token.type = TokenType.WORD
-            # Remove whitespace before suffix to ensure attachment
-            # (The number token's whitespace_after + suffix)
-            # Actually, GrammarNormalizer expects the previous token to have whitespace?
-            # No, GrammarNormalizer consumes whitespace.
-            # But we want: "5000 IQDە" -> "Penc... Iraqi" + "ە".
-            # They should be adjacent or close.
-            # We already appended symbol_token.whitespace_after to number_token.
-            # We should probably clear number_token.whitespace_after if we want tight binding,
-            # but GrammarNormalizer handles " " or "" via _attach_suffix.
+            # GrammarNormalizer handles spacing connection
             pass
         else:
             # Mark as consumed

@@ -19,6 +19,7 @@ COMMON_TERMS_MAP = {
     "contact": "کۆنتاکت",
     "admin": "ئەدمین",
     "user": "یوسەر",
+    "name": "نەیم",
     "login": "لۆگین",
     "signup": "ساین ئەپ",
     "mail": "مەیل",
@@ -62,6 +63,9 @@ DIGITS_MAP = {
 # --- 3. Regex Patterns ---
 # Expanded to include ALL symbols in WEB_SYMBOL_MAP (:@/?=&%#)
 STRUCTURE_SPLIT_RE = re.compile(r"([@.+\-/_:?=&%#])")
+
+# Optimization: Pre-compiled regex for splitting chunks (letters vs symbols)
+CHUNK_SPLIT_RE = re.compile(r"([a-zA-Z0-9\u0080-\uFFFF]+)|([@.+\-/_:?=&%#])")
 
 
 # --- 4. Logic ---
@@ -125,7 +129,7 @@ def _spell_web_string(text: str) -> str:
 
         # We need to re-split chunks that still contain symbols (like 'mail+info' or mixed unicode)
         # Updated regex to handle unicode chunks AND catch all symbol delimiters in the second group
-        sub_tokens = re.findall(r"([a-zA-Z0-9\u0080-\uFFFF]+)|([@.+\-/_:?=&%#])", raw_token)
+        sub_tokens = CHUNK_SPLIT_RE.findall(raw_token)
 
         if sub_tokens:
             for letters, symbol in sub_tokens:

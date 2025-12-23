@@ -67,6 +67,13 @@ class MathNormalizer(Module):
         "↉": (0, 3),
     }
 
+    # Optimization: Pre-compiled Regex Patterns
+    SUBSCRIPT_RE = re.compile(r"^[\u2080-\u2089]+$")
+    SUPERSCRIPT_RE = re.compile(r"^[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+$")
+    VARIABLE_RE = re.compile(r"^[a-zA-Z]{1,2}$")
+    HAS_DIGIT_RE = re.compile(r"\d")
+    NUMERIC_FORMAT_RE = re.compile(r"^[\d,]+(\.\d+)?$")
+
     @property
     def name(self) -> str:
         return "MathNormalizer"
@@ -99,8 +106,7 @@ class MathNormalizer(Module):
 
             # --- 0. Handle Subscripts (Base) ---
             if hasattr(token.type, 'name') and token.type.name == 'SUBSCRIPT' or \
-                    (token.type in (TokenType.SYMBOL, TokenType.UNKNOWN) and re.match(r"^[\u2080-\u2089]+$",
-                                                                                      token.text)):
+                    (token.type in (TokenType.SYMBOL, TokenType.UNKNOWN) and self.SUBSCRIPT_RE.match(token.text)):
 
                 ascii_digits = token.text.translate(self.SUBSCRIPT_DIGITS)
                 if ascii_digits.isdigit():
@@ -116,13 +122,14 @@ class MathNormalizer(Module):
 
             # --- 0. Handle Superscripts (Power/Ja) ---
             if hasattr(token.type, 'name') and token.type.name == 'SUPERSCRIPT' or \
-                    (token.type in (TokenType.SYMBOL, TokenType.UNKNOWN) and re.match(
-                        r"^[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+$", token.text)):
+                    (token.type in (TokenType.SYMBOL, TokenType.UNKNOWN) and self.SUPERSCRIPT_RE.match(token.text)):
 
                 prev = self._get_prev(tokens, i)
                 is_unit_context = False
                 if prev:
-                    if "IS_UNIT" in prev.tags or "UNIT_PROCESSED" in prev.tags:
+                    # FIX: Only treat as unit context if IS_UNIT is present AND MATH_TERM is NOT present.
+                    # If MathNormalizer claimed the previous token (variable), it's a math term, not a unit.
+                    if ("IS_UNIT" in prev.tags or "UNIT_PROCESSED" in prev.tags) and "MATH_TERM" not in prev.tags:
                         is_unit_context = True
                     elif prev.type == TokenType.WORD and (
                             prev.text.endswith("مەتر") or prev.text.endswith("گرام") or
@@ -165,12 +172,14 @@ class MathNormalizer(Module):
                     continue
 
                 # Check for Latin Variables (x, y, a, b, ac...)
-                # FIX: Strict 1-2 char limit. Longer words like "speed", "Area", "val" skip this block.
-                if re.match(r"^[a-zA-Z]{1,2}$", token.text):
+                if self.VARIABLE_RE.match(token.text):
                     # Logic to override IS_UNIT for potential variables like 'a' in '2a'
                     is_strict_unit = "IS_UNIT" in token.tags and token.text.lower() in self.STRICT_UNITS
 
-                    if not is_strict_unit:
+                    # IMPORTANT: If token is "داش", skip variable check (it's handled below as an operator)
+                    if token.text == "داش":
+                        pass
+                    elif not is_strict_unit:
                         prev = self._get_prev(tokens, i)
                         next_t = self._get_next(tokens, i)
 
@@ -182,6 +191,11 @@ class MathNormalizer(Module):
 
                             token.text = " ".join(spelled_out)
                             token.tags.add("MATH_TERM")
+
+                            # CRITICAL FIX: If we identify this as a math variable, remove the IS_UNIT tag.
+                            # This prevents the superscript logic (in next iteration) from treating it as a unit power.
+                            token.tags.discard("IS_UNIT")
+
                             token.type = TokenType.WORD
                             token.whitespace_after = " "
                             if prev and not prev.whitespace_after:
@@ -190,12 +204,20 @@ class MathNormalizer(Module):
                             continue
 
             # --- 2. Math Operators & Brackets ---
-            if token.type == TokenType.SYMBOL and (token.text in self.MATH_SYMBOLS or token.text in self.MATH_BRACKETS):
+            is_math_symbol = token.type == TokenType.SYMBOL and (
+                        token.text in self.MATH_SYMBOLS or token.text in self.MATH_BRACKETS)
+            # FIX: Handle "dash" word from TechnicalNormalizer (for 1990-2000)
+            is_dash_word = token.type == TokenType.WORD and token.text == "داش"
+
+            if is_math_symbol or is_dash_word:
                 prev = self._get_prev(tokens, i)
                 next_t = self._get_next(tokens, i)
 
+                # Normalize text for checks (Treat "داش" as "-")
+                check_text = "-" if is_dash_word else token.text
+
                 # Special Check for '+'
-                if token.text == "+" and prev and next_t:
+                if check_text == "+" and prev and next_t:
                     if prev.type == TokenType.WORD and next_t.type == TokenType.WORD:
                         if len(prev.text) > 1 and "MATH_TERM" not in prev.tags:
                             token.text = "لەگەڵ"
@@ -211,42 +233,49 @@ class MathNormalizer(Module):
                             i += 1
                             continue
 
-                is_math_context = self._check_math_context(token, prev, next_t)
+                # --- Range vs Minus Check (Prioritized for both Symbol - and Word داش) ---
+                if check_text == "-" or check_text == "−":
+                    prev_prev = self._get_prev(tokens, i - 1) if prev else None
+                    next_next = self._get_next(tokens, i + 1) if next_t else None
+                    is_prev_num = self._is_numeric_token(prev)
+                    is_next_num = self._is_numeric_token(next_t)
+
+                    def is_active_math(t):
+                        if not t: return False
+                        if t.text in self.MATH_SYMBOLS: return True
+                        if t.text in self.MATH_BRACKETS: return True
+                        if self._is_math_term(t.text): return True
+                        if "MATH_TERM" in t.tags: return True
+                        return False
+
+                    is_isolated = not (is_active_math(prev_prev) or is_active_math(next_next))
+
+                    if is_prev_num and is_next_num and is_isolated:
+                        token.text = "بۆ"
+                        token.type = TokenType.WORD
+                        token.whitespace_after = " "
+                        if prev: prev.whitespace_after = " "
+                        i += 1
+                        continue
+
+                # Determine Context
+                is_math_context = False
+                if is_dash_word:
+                    # Proxy check: treat this token as if it were a math symbol '-'
+                    is_math_context = self._check_math_context_logic("-", TokenType.SYMBOL, prev, next_t)
+                else:
+                    is_math_context = self._check_math_context(token, prev, next_t)
 
                 if is_math_context:
-                    if token.text in self.MATH_BRACKETS:
+                    if check_text in self.MATH_BRACKETS:
                         token.type = TokenType.WORD
                         token.whitespace_after = " "
 
-                    elif token.text in self.MATH_SYMBOLS:
+                    elif check_text in self.MATH_SYMBOLS:
                         handled_fraction = False
 
-                        # --- Range vs Minus Check ---
-                        if token.text == "-" or token.text == "−":
-                            prev_prev = self._get_prev(tokens, i - 1) if prev else None
-                            next_next = self._get_next(tokens, i + 1) if next_t else None
-                            is_prev_num = self._is_numeric_token(prev)
-                            is_next_num = self._is_numeric_token(next_t)
-
-                            def is_active_math(t):
-                                if not t: return False
-                                if t.text in self.MATH_SYMBOLS: return True
-                                if t.text in self.MATH_BRACKETS: return True
-                                if self._is_math_term(t.text): return True
-                                if "MATH_TERM" in t.tags: return True
-                                return False
-
-                            is_isolated = not (is_active_math(prev_prev) or is_active_math(next_next))
-
-                            if is_prev_num and is_next_num and is_isolated:
-                                token.text = "بۆ"
-                                token.type = TokenType.WORD
-                                token.whitespace_after = " "
-                                if prev: prev.whitespace_after = " "
-                                i += 1
-                                continue
-
-                        if token.text == "/" or token.text == "÷":
+                        # Division
+                        if check_text == "/" or check_text == "÷":
                             if prev and next_t:
                                 # FIX: Check if neighbors are UNITS. If so, SKIP division (let UnitNormalizer handle it).
                                 prev_is_unit = "IS_UNIT" in prev.tags or "UNIT_PROCESSED" in prev.tags
@@ -276,13 +305,13 @@ class MathNormalizer(Module):
                                        prev.text in ["(", "[", "{", "=", ","] or \
                                        (prev.type == TokenType.SYMBOL and prev.text in self.MATH_SYMBOLS)
 
-                            if is_unary and token.text in ["-", "−", "+"]:
-                                if token.text in ["-", "−"]:
+                            if is_unary and check_text in ["-", "−", "+"]:
+                                if check_text in ["-", "−"]:
                                     token.text = "سالب"
-                                elif token.text == "+":
+                                elif check_text == "+":
                                     token.text = "موجەب"
                             else:
-                                token.text = self.MATH_SYMBOLS[token.text]
+                                token.text = self.MATH_SYMBOLS[check_text]
 
                             token.type = TokenType.WORD
                             token.whitespace_after = " "
@@ -298,8 +327,8 @@ class MathNormalizer(Module):
     def _is_numeric_token(self, token: Token) -> bool:
         if not token: return False
         if token.type == TokenType.NUMBER: return True
-        has_digit = bool(re.search(r"\d", token.original_text))
-        is_num_format = bool(re.match(r"^[\d,]+(\.\d+)?$", token.original_text))
+        has_digit = bool(self.HAS_DIGIT_RE.search(token.original_text))
+        is_num_format = bool(self.NUMERIC_FORMAT_RE.match(token.original_text))
         return has_digit and is_num_format
 
     def _format_fraction(self, num: int, denom: int, is_mixed: bool) -> str:
@@ -313,37 +342,51 @@ class MathNormalizer(Module):
             return f"{num_text} دابەش {denom_text}"
 
     def _check_math_context(self, current: Token, prev: Token | None, next_t: Token | None) -> bool:
+        """Checks if current token is in a mathematical context."""
+        return self._check_math_context_logic(current.text, current.type, prev, next_t)
+
+    def _check_math_context_logic(self, text: str, type: TokenType, prev: Token | None, next_t: Token | None) -> bool:
         def is_mathy(t):
             if not t: return False
             if t.type == TokenType.NUMBER: return True
             if "MATH_TERM" in t.tags: return True
             if self._is_math_term(t.text): return True
+            # FIX: Check explicitly for Superscript/Subscript type OR tag/pattern
             if hasattr(t.type, 'name') and t.type.name in ('SUBSCRIPT', 'SUPERSCRIPT'): return True
+            # Also check if text matches the patterns (in case tokenizer typed it as SYMBOL)
+            if self.SUPERSCRIPT_RE.match(t.text) or self.SUBSCRIPT_RE.match(t.text): return True
+
             # FIX: Detect Variables (Single Latin Letter Words)
             if t.type == TokenType.WORD and len(t.text) == 1 and t.text.isalpha(): return True
             # Check for Greek letters
             if t.text in GREEK_NAMES_MAP: return True
             return False
 
-        if current.text in self.MATH_BRACKETS:
+        if text in self.MATH_BRACKETS:
             is_start_or_unary = (prev is None) or (prev.text in ["(", "[", "{", "=", ","]) or (
-                        prev.text in self.MATH_SYMBOLS)
+                    prev.text in self.MATH_SYMBOLS)
             prev_valid = is_start_or_unary or is_mathy(prev) or prev.text in [")", "]"]
             next_valid = next_t and (is_mathy(next_t) or next_t.text in ["(", "[", "sin", "cos"])
             if prev_valid or next_valid: return True
 
-        if current.text in self.MATH_SYMBOLS:
+        if text in self.MATH_SYMBOLS:
             is_start_or_unary = (prev is None) or (prev.text in ["(", "[", "{", "=", ","]) or (
-                        prev.text in self.MATH_SYMBOLS)
+                    prev.text in self.MATH_SYMBOLS)
             prev_valid = is_start_or_unary or is_mathy(prev) or prev.text in [")"]
             next_valid = next_t and (is_mathy(next_t) or next_t.text in ["("])
             if prev_valid and next_valid: return True
 
         # New check for Variables (e.g. x, ac) in implicit math context (e.g. 2a)
-        if current.type == TokenType.WORD and re.match(r"^[a-zA-Z]{1,2}$", current.text):
-            if current.text.lower() in self.STRICT_UNITS: return False
+        if type == TokenType.WORD and self.VARIABLE_RE.match(text):
+            if text.lower() in self.STRICT_UNITS: return False
             if prev and prev.type == TokenType.NUMBER: return True
-            if next_t and next_t.type == TokenType.NUMBER: return True
+            if next_t:
+                if next_t.type == TokenType.NUMBER: return True
+                # FIX: Explicitly allow following superscript (e.g. a²)
+                if self.SUPERSCRIPT_RE.match(next_t.text) or (
+                        hasattr(next_t.type, 'name') and next_t.type.name == 'SUPERSCRIPT'):
+                    return True
+
             if prev and prev.text in self.MATH_SYMBOLS: return True
             if next_t and next_t.text in self.MATH_SYMBOLS: return True
             if prev and prev.text in self.MATH_BRACKETS: return True

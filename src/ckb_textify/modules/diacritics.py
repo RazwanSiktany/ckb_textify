@@ -339,8 +339,6 @@ class DiacriticsNormalizer(Module):
             # 3. Fallback for internal sentence boundary Waslas
             text = self.WASLA_START_RE.sub(r"\1\2ئە", text)
 
-        # Remove redundant ALLAH check that was here previously
-
         if has_diacritics:
             # C. Shamsi (Sun) Rule - Assimilates 'L'
             text = self.SHAMSI_RE.sub(r"\1\2\4\5\6", text)
