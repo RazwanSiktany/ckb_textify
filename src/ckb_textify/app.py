@@ -12,7 +12,7 @@ from ckb_textify.core.types import NormalizationConfig
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Kurdish Text Normalizer v2",
+    page_title="Kurdish Text Normalizer v5",
     page_icon="🦁",
     layout="wide",
     initial_sidebar_state="expanded"
