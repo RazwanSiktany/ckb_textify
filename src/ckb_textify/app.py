@@ -105,7 +105,7 @@ shadda_mode = st.sidebar.selectbox(
 )
 
 # --- Main App Interface ---
-st.title("🦁 ckb-textify v2")
+st.title("🦁 ckb-textify v5")
 st.markdown("##### Advanced Kurdish (Sorani) Text Normalization Engine")
 
 # Input Area
