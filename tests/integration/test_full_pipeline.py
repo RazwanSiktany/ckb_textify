@@ -166,8 +166,8 @@ def test_diacritics(pipe, input_text, expected):
     ("00:1A:2B:3C:4D:5E", "سفر سفر دوو خاڵ یەک ئەی دوو خاڵ دوو بی دوو خاڵ سێ سی دوو خاڵ چوار دی دوو خاڵ پێنج ئی"), # MAC Address
     ("8-αβγ123", "ھەشت داش ئاڵفا بێتا گاما یەک دوو سێ"),
     ("-αβγ123", "داش ئاڵفا بێتا گاما یەک دوو سێ"),
-    ("#Kurdistan", "ھاشتاگ کەی یو ئاڕ دی ئای ئێس تی ئەی ئێن"),
-    ("@user_name", "ئەت یوسەر ئەندەرسکۆڕ نەیم"),
+    ("#Kurdistan", "ھاشتاگ کەڕدیستان"),
+    ("@user_name", "ئەت یوزەڕ ئەندەرسکۆڕ نەیم"),
 ])
 def test_technical(pipe, input_text, expected):
     assert pipe.normalize(input_text) == expected

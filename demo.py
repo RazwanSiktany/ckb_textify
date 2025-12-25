@@ -112,15 +112,13 @@ test_suites = {
         "Hash/Mention: #Kurdistan @User_1",
         "#Kurdistan",
         "1999 - 2005",
+        "کاتی خایەنراو ٤٤:٠٠",
+        "دەکرێ ١١١:٢٣",
     ]
 }
 
 # --- 2. Special Config Tests ---
 special_tests = {
-    "💬 Chat Speak (Config Enabled)": {
-        "text": "7az dakam, s3at chand?",
-        "config": {"chat_speak": True}  # Requires ChatSpeakNormalizer logic if implemented
-    },
     "😀 Emojis (Convert Mode)": {
         "text": "سڵاو 😂 دڵم ❤️",
         "config": {"emoji_mode": "convert"}

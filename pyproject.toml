@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ckb-textify"
-version = "5.0.0"
+version = "5.0.1"
 description = "Industrial-strength Text Normalization and Transliteration for Central Kurdish (Sorani)"
 readme = "README.md"
 authors = [
@@ -16,7 +16,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Topic :: Text Processing :: Linguistic",
-    "Natural Language :: Central Kurdish",
 ]
 keywords = ["kurdish", "sorani", "normalization", "transliteration", "nlp", "tts", "text-processing", "Central-Kurdish"]
 requires-python = ">=3.7"

@@ -69,27 +69,23 @@ class TechnicalNormalizer(Module):
 
             # FIX: Skip processing if it's a numeric range (1990-2000) that tokenizer grouped as WORD
             if token.type == TokenType.WORD and self.RANGE_RE.fullmatch(token.text):
-                # Let MathNormalizer handle this or split it
-                # Tokenizer usually splits 1990-2000 into 3 tokens if they are numbers.
-                # But if they matched WORD pattern, we skip code expansion here.
                 new_tokens.append(token)
                 continue
 
             if token.type == TokenType.TECHNICAL:
                 text = token.text
-                if text.startswith("#"):
+                if text.startswith("#") or text.startswith("@"):
+                    is_hashtag = text.startswith("#")
+                    prefix_text = "ھاشتاگ" if is_hashtag else "ئەت"
                     core = text[1:]
-                    spoken_core = self.helper._spell_out(core)
-                    new_tokens.append(Token("ھاشتاگ", "ھاشتاگ", TokenType.WORD, whitespace_after=" "))
-                    new_tokens.append(Token(spoken_core, core, TokenType.WORD, tags={"IS_SPELLED_OUT"},
-                                            whitespace_after=token.whitespace_after))
-                    processed_by_expansion = True
-                elif text.startswith("@"):
-                    core = text[1:]
-                    spoken_core = self.helper._spell_out(core)
-                    new_tokens.append(Token("ئەت", "ئەت", TokenType.WORD, whitespace_after=" "))
-                    new_tokens.append(Token(spoken_core, core, TokenType.WORD, tags={"IS_SPELLED_OUT"},
-                                            whitespace_after=token.whitespace_after))
+
+                    new_tokens.append(Token(prefix_text, prefix_text, TokenType.WORD, whitespace_after=" "))
+
+                    # Decompose the core into Words, Digits, and Symbols to ensure preservation
+                    # e.g., "User_1" -> Token("User"), Token("_"), Token("1")
+                    decomposed_tokens = self._decompose_hash_mention_core(core, token.whitespace_after)
+                    new_tokens.extend(decomposed_tokens)
+
                     processed_by_expansion = True
                 else:
                     token.text = self.helper._spell_out(token.text)
@@ -106,9 +102,6 @@ class TechnicalNormalizer(Module):
                     if prev and next_t and prev.type == TokenType.NUMBER and next_t.type == TokenType.NUMBER:
                         is_pure_numeric_range = True
                 elif token.type == TokenType.NUMBER:
-                    # If I am a number, check if I am part of Number-Number relation
-                    # This is tricky because we already added to tech_indices.
-                    # Better to check neighbor types.
                     if next_t and next_t.text == "-" and tokens[i + 2].type == TokenType.NUMBER:
                         is_pure_numeric_range = True
                     if prev and prev.text == "-" and tokens[i - 2].type == TokenType.NUMBER:
@@ -155,6 +148,43 @@ class TechnicalNormalizer(Module):
                 new_tokens.append(token)
 
         return new_tokens
+
+    def _decompose_hash_mention_core(self, core: str, final_whitespace: str) -> List[Token]:
+        """
+        Splits a hashtag/mention core (e.g. "User_1") into constituent tokens
+        (User, _, 1) so downstream modules (Transliteration, Symbol, Number)
+        can process them individually without dropping parts.
+        """
+        tokens = []
+        # 1. Split into chunks by symbols (using existing splitter logic)
+        sub_parts = [match.group(0) for match in self.CODE_SPLITTER_RE.finditer(core)]
+
+        final_parts = []
+        for p in sub_parts:
+            if self.SYMBOL_PART_RE.match(p):
+                # Is a separator/symbol
+                final_parts.append((p, TokenType.SYMBOL))
+            elif p.isdigit():
+                # Is a number
+                final_parts.append((p, TokenType.NUMBER))
+            else:
+                # Is text/alphanumeric (e.g. "User" or "User1")
+                # Split any digits attached to words so Transliteration doesn't eat them
+                # Regex matches sequences of non-digits (\D+) OR digits (\d+)
+                mixed_parts = re.findall(r"\d+|\D+", p)
+                for mp in mixed_parts:
+                    if mp.isdigit():
+                        final_parts.append((mp, TokenType.NUMBER))
+                    else:
+                        final_parts.append((mp, TokenType.WORD))
+
+        # 2. Create Token objects
+        for j, (text, t_type) in enumerate(final_parts):
+            # Last token gets the original whitespace; others get a single space
+            ws = final_whitespace if j == len(final_parts) - 1 else " "
+            tokens.append(Token(text, text, t_type, whitespace_after=ws))
+
+        return tokens
 
     def _is_potential_code(self, token: Token) -> bool:
         if token.type == TokenType.WORD:

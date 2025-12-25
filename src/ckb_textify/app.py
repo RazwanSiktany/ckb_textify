@@ -110,7 +110,7 @@ st.markdown("##### Advanced Kurdish (Sorani) Text Normalization Engine")
 
 # Input Area
 input_text = st.text_area("Input Text (Kurdish/English/Arabic)", height=200,
-                          placeholder="Type something here... e.g., Hello! Call 07501234567.")
+                          placeholder="دەقێکی تێکەڵی کوردی لێرە بنووسە بۆ نموونە.... لە کاتژمێر ٣:٣٠ پەیوەندی بکە بە ٠٧٥٠٧٧٨٥٨٠٦")
 
 col_btn, col_info = st.columns([1, 4])
 

@@ -99,12 +99,10 @@ class DiacriticsNormalizer(Module):
         r"([\w])?"  # 1. Preceding Char
         r"([\u064B-\u0652\u0670\u06E1])?"  # 2. Preceding Diacritic
         r"(\s*)"  # 3. Space
-        # 4. Body: Strict matching to avoid single Lam words like 'Lahum'
-        # Matches:
-        # A. (Alif/Wasla/Kurdish Alef) + Lam + (optional diacritics) + Lam
-        # B. Lam + (optional diacritics) + Lam
-        # REMOVED single Lam + Shadda branch to prevent 'Lahu' matching
-        r"((?:(?:(?:ئە|ٱ|ا)ل[\u064B-\u065F\u0670]*ل)|(?:ل[\u064B-\u065F\u0670]*ل))(?:[\u064B-\u065F\u0670]*)(?:[\u0670\u0627]?)[هھە])"
+        # 4. Body: Strict matching to avoid single Lam words like 'Lahum'. 
+        # Added (?<![ل]) lookbehind to ensure we don't start match inside a sequence of Lams.
+        # Fixed unmatched parenthesis in first branch of alternation
+        r"((?<![ل])(?:(?:(?:(?:ئە|ٱ|ا)ل[\u064B-\u065F\u0670]*ل))|(?:ل[\u064B-\u065F\u0670]*ل))(?:[\u064B-\u065F\u0670]*)(?:[\u0670\u0627]?)[هھە])"
         r"([\u064B-\u0652\u0670\u06E1])?"  # 5. Ending Diacritic
     )
 
